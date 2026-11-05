@@ -1,44 +1,36 @@
+using VehicleTracker.Application.Common.Interfaces;
+using VehicleTracker.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// Infrastructure katmanımızı Dependency Injection sistemine tek satırda kaydediyoruz
+builder.Services.AddInfrastructureServices();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// TEST BLOĞU: Sunucu ayağa kalkarken Entur'dan canlı araçları çekip ekrana basalım
+using (var scope = app.Services.CreateScope())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    var feedService = scope.ServiceProvider.GetRequiredService<IVehicleFeedService>();
+    
+    Console.WriteLine("==================================================");
+    Console.WriteLine("Norvec Entur API'sine baglaniliyor...");
+    
+    var positions = await feedService.FetchLatestPositionsAsync();
+    
+    Console.WriteLine($"BASARILI! Toplam {positions.Count} adet canli arac verisi alindi.");
+    
+    var firstVehicle = positions.FirstOrDefault();
+    if (firstVehicle != null)
+    {
+        Console.WriteLine($"Ornek Arac ID: {firstVehicle.VehicleId}");
+        Console.WriteLine($"Enlem: {firstVehicle.Latitude}, Boylam: {firstVehicle.Longitude}");
+        Console.WriteLine($"Hiz: {firstVehicle.Speed} m/s, Yon: {firstVehicle.Bearing}");
+        Console.WriteLine($"Zaman: {firstVehicle.Timestamp:yyyy-MM-dd HH:mm:ss} UTC");
+    }
+    Console.WriteLine("==================================================");
 }
 
-app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+app.MapGet("/", () => "Live Vehicle Tracker API Calisiyor!");
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
