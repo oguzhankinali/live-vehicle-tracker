@@ -4,7 +4,7 @@ using VehicleTracker.Infrastructure;
 var builder = WebApplication.CreateBuilder(args);
 
 // Infrastructure katmanımızı Dependency Injection sistemine tek satırda kaydediyoruz
-builder.Services.AddInfrastructureServices();
+builder.Services.AddInfrastructureServices(builder.Configuration);
 
 var app = builder.Build();
 
