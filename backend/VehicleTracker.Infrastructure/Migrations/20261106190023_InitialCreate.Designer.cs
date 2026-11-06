@@ -12,7 +12,7 @@ using VehicleTracker.Infrastructure.Persistence;
 namespace VehicleTracker.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261105223026_InitialCreate")]
+    [Migration("20261106190023_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -39,6 +39,16 @@ namespace VehicleTracker.Infrastructure.Migrations
                     b.Property<float?>("Bearing")
                         .HasColumnType("real");
 
+                    b.Property<string>("CurrentStatus")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long?>("CurrentStopSequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("DirectionId")
+                        .HasColumnType("bigint");
+
                     b.Property<double>("Latitude")
                         .HasColumnType("double precision");
 
@@ -56,6 +66,10 @@ namespace VehicleTracker.Infrastructure.Migrations
                     b.Property<float?>("Speed")
                         .HasColumnType("real");
 
+                    b.Property<string>("StopId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<string>("TripId")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
@@ -65,7 +79,13 @@ namespace VehicleTracker.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<string>("VehicleLabel")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.HasKey("Id", "Timestamp");
+
+                    b.HasIndex("Timestamp");
 
                     b.HasIndex("VehicleId", "Timestamp");
 
