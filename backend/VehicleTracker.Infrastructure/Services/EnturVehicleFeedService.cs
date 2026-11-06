@@ -1,30 +1,41 @@
-
 using Google.Protobuf;
+using Microsoft.Extensions.Options;
 using TransitRealtime;
 using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.Domain.Entities;
+using VehicleTracker.Infrastructure.Options;
+
 using FeedOccupancyStatus = TransitRealtime.VehiclePosition.Types.OccupancyStatus;
+using FeedVehicleStopStatus = TransitRealtime.VehiclePosition.Types.VehicleStopStatus;
 using DomainOccupancyStatus = VehicleTracker.Domain.Enums.OccupancyStatus;
+using DomainVehicleStopStatus = VehicleTracker.Domain.Enums.VehicleStopStatus;
 
 namespace VehicleTracker.Infrastructure.Services;
 
 public class EnturVehicleFeedService : IVehicleFeedService
 {
     private readonly HttpClient _httpClient;
+    private readonly EnturOptions _options;
 
-    private const string DefaultFeedUrl =
-        "https://api.entur.io/realtime/v1/gtfs-rt/vehicle-positions";
-
-    public EnturVehicleFeedService(HttpClient httpClient)
+    public EnturVehicleFeedService(
+        HttpClient httpClient,
+        IOptions<EnturOptions> options)
     {
         _httpClient = httpClient;
+        _options = options.Value;
     }
 
     public async Task<IReadOnlyList<VehiclePositionRecord>> FetchLatestPositionsAsync(
         CancellationToken cancellationToken = default)
     {
-        using var response = await _httpClient.GetAsync(
-            DefaultFeedUrl,
+        using var request = new HttpRequestMessage(HttpMethod.Get, _options.FeedUrl);
+
+        request.Headers.TryAddWithoutValidation(
+            "ET-Client-Name",
+            _options.ClientName);
+
+        using var response = await _httpClient.SendAsync(
+            request,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
 
@@ -45,27 +56,81 @@ public class EnturVehicleFeedService : IVehicleFeedService
             var vehicle = entity.Vehicle;
             var position = vehicle.Position;
 
-            var timestamp = vehicle.Timestamp > 0
-                ? DateTimeOffset.FromUnixTimeSeconds((long)vehicle.Timestamp).UtcDateTime
+            var currentStopSequence = vehicle.HasCurrentStopSequence
+                ? vehicle.CurrentStopSequence
+                : (uint?)null;
+
+            DomainVehicleStopStatus? currentStatus = currentStopSequence.HasValue
+                ? vehicle.HasCurrentStatus
+                    ? MapVehicleStopStatus(vehicle.CurrentStatus)
+                    : DomainVehicleStopStatus.InTransitTo
+                : null;
+
+            var timestamp = vehicle.HasTimestamp
+                ? DateTimeOffset.FromUnixTimeSeconds(
+                    (long)vehicle.Timestamp).UtcDateTime
                 : DateTime.UtcNow;
 
             records.Add(new VehiclePositionRecord
             {
                 VehicleId = vehicle.Vehicle?.Id ?? entity.Id,
+
+                VehicleLabel = vehicle.Vehicle?.HasLabel == true
+                    ? vehicle.Vehicle.Label
+                    : null,
+
                 TripId = vehicle.Trip?.TripId,
                 RouteId = vehicle.Trip?.RouteId,
+
+                DirectionId = vehicle.Trip?.HasDirectionId == true
+                    ? vehicle.Trip.DirectionId
+                    : null,
+
                 Latitude = position.Latitude,
                 Longitude = position.Longitude,
-                Bearing = position.HasBearing ? position.Bearing : null,
-                Speed = position.HasSpeed ? position.Speed : null,
+
+                Bearing = position.HasBearing
+                    ? position.Bearing
+                    : null,
+
+                Speed = position.HasSpeed
+                    ? position.Speed
+                    : null,
+
+                StopId = vehicle.HasStopId
+                    ? vehicle.StopId
+                    : null,
+
+                CurrentStopSequence = currentStopSequence,
+                CurrentStatus = currentStatus,
+
                 OccupancyStatus = vehicle.HasOccupancyStatus
                     ? MapOccupancyStatus(vehicle.OccupancyStatus)
                     : null,
+
                 Timestamp = timestamp
             });
         }
 
         return records;
+    }
+
+    private static DomainVehicleStopStatus MapVehicleStopStatus(
+        FeedVehicleStopStatus status)
+    {
+        return status switch
+        {
+            FeedVehicleStopStatus.IncomingAt =>
+                DomainVehicleStopStatus.IncomingAt,
+
+            FeedVehicleStopStatus.StoppedAt =>
+                DomainVehicleStopStatus.StoppedAt,
+
+            FeedVehicleStopStatus.InTransitTo =>
+                DomainVehicleStopStatus.InTransitTo,
+
+            _ => DomainVehicleStopStatus.InTransitTo
+        };
     }
 
     private static DomainOccupancyStatus? MapOccupancyStatus(
