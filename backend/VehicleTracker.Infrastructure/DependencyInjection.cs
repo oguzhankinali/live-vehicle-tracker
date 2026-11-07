@@ -78,6 +78,11 @@ public static class DependencyInjection
         // Kalıcı veri yazıcı ve retention servisleri
         services.AddSingleton<IVehiclePositionWriter, NpgsqlVehiclePositionWriter>();
         services.AddSingleton<IVehicleRetentionService, TimescaleRetentionService>();
+        services.AddSingleton<IVehicleLiveStateStore, InMemoryVehicleLiveStateStore>();
+        services.AddSingleton<ISystemMetricsService, SystemMetricsService>();
+        services.AddSingleton<IVehicleHistoryService, TimescaleVehicleHistoryService>();
+
+
 
         // Arka plan işçileri (Ingestion ve Retention)
         services.AddHostedService<VehicleIngestionWorker>();

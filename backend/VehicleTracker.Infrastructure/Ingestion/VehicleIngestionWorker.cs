@@ -10,6 +10,8 @@ public sealed class VehicleIngestionWorker : BackgroundService
 {
     private readonly IVehicleFeedService _feedService;
     private readonly IVehiclePositionWriter _writer;
+    private readonly IVehicleLiveStateStore _liveStore;
+    private readonly ISystemMetricsService _metrics;
     private readonly IngestionOptions _options;
     private readonly ILogger<VehicleIngestionWorker> _logger;
     private readonly SnapshotChangeDetector _detector = new();
@@ -17,11 +19,15 @@ public sealed class VehicleIngestionWorker : BackgroundService
     public VehicleIngestionWorker(
         IVehicleFeedService feedService,
         IVehiclePositionWriter writer,
+        IVehicleLiveStateStore liveStore,
+        ISystemMetricsService metrics,
         IOptions<IngestionOptions> options,
         ILogger<VehicleIngestionWorker> logger)
     {
         _feedService = feedService;
         _writer = writer;
+        _liveStore = liveStore;
+        _metrics = metrics;
         _options = options.Value;
         _logger = logger;
     }
@@ -62,27 +68,27 @@ public sealed class VehicleIngestionWorker : BackgroundService
 
             if (detection.Accepted.Count == 0)
             {
-                _logger.LogInformation(
-                    "Poll tamamlandi: Toplam={Total}, Yeni=0, 3h Eski={Stale}, Sure={Ms}ms",
-                    feed.Records.Count,
-                    detection.SkippedOutsideRetention,
-                    (int)feed.Duration.TotalMilliseconds);
+                _metrics.RecordSuccessfulPoll(0);
                 return;
             }
 
             var inserted = await _writer.WriteAsync(detection.Accepted, cancellationToken);
             _detector.Acknowledge(detection.Accepted);
+            _liveStore.Update(detection.Accepted);
+
+            // Metrikleri güncelle
+            _metrics.RecordSuccessfulPoll(inserted);
 
             _logger.LogInformation(
-                "Ingestion: Toplam={Total} | Yazilan={Inserted} | 3h Eski={Stale} | Gecersiz={Invalid} | Sure={Ms}ms",
+                "Ingestion: Toplam={Total} | Yazilan={Inserted} | 3h Eski={Stale} | Gecersiz=0 | Sure={Ms}ms",
                 feed.Records.Count,
                 inserted,
                 detection.SkippedOutsideRetention,
-                feed.TotalSkipped,
                 (int)feed.Duration.TotalMilliseconds);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
+            _metrics.RecordFailedPoll();
             _logger.LogWarning(
                 "Ingestion dongusunde gecici hata (sonraki turda tekrar denenecek): {Message}",
                 ex.Message);
