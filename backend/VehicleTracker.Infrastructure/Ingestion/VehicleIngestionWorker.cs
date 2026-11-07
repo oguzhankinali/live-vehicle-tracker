@@ -66,6 +66,7 @@ public sealed class VehicleIngestionWorker : BackgroundService
 
             if (detection.Disposition == SnapshotDisposition.DuplicatePayload)
             {
+                _metrics.RecordSuccessfulPoll(0);
                 return;
             }
 

@@ -34,7 +34,14 @@ builder.Services.AddCors(options =>
     });
 });
 // SignalR ve Publisher Kaydı
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options => 
+{
+    // Yavaş istemciler sunucu belleğini şişirmesin diye buffer limitleri koyuyoruz.
+    // İstemci bu buffer'ı dolduracak kadar yavaş okuyorsa, SignalR onu otomatik olarak düşürür.
+    // Böylece diğer hızlı istemciler ve Ingestion döngüsü etkilenmez.
+    options.MaximumReceiveMessageSize = 32768;
+    options.StreamBufferCapacity = 10;
+});
 builder.Services.AddSingleton<VehicleTracker.WebApi.Services.SignalRVehiclePublisher>();
 builder.Services.AddSingleton<IVehiclePublisher>(sp => sp.GetRequiredService<VehicleTracker.WebApi.Services.SignalRVehiclePublisher>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<VehicleTracker.WebApi.Services.SignalRVehiclePublisher>());
@@ -100,9 +107,16 @@ vehiclesGroup.MapGet("/{vehicleId}/history", async (
     [FromQuery] int pageSize = 50,
     CancellationToken ct = default) =>
 {
-    var query = new VehicleHistoryQuery(vehicleId, from, to, page, pageSize);
-    var result = await historyService.GetHistoryAsync(query, ct);
-    return Results.Ok(result);
+    try
+    {
+        var query = new VehicleHistoryQuery(vehicleId, from, to, page, pageSize);
+        var result = await historyService.GetHistoryAsync(query, ct);
+        return Results.Ok(result);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
 })
 .WithName("GetVehicleHistory")
 .WithSummary("Secilen aracin son 3 saatlik filtrelenebilir konum gecmisini sayfali doner.");
