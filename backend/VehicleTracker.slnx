@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="VehicleTracker.Application.Tests/VehicleTracker.Application.Tests.csproj" />
   <Project Path="VehicleTracker.Application/VehicleTracker.Application.csproj" />
   <Project Path="VehicleTracker.Domain/VehicleTracker.Domain.csproj" />
   <Project Path="VehicleTracker.Infrastructure/VehicleTracker.Infrastructure.csproj" />

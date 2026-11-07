@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using VehicleTracker.Application.Common.Interfaces;
+using VehicleTracker.Application.Ingestion;
+using VehicleTracker.Infrastructure.Ingestion;
 using VehicleTracker.Infrastructure.Options;
 using VehicleTracker.Infrastructure.Persistence;
 using VehicleTracker.Infrastructure.Services;
@@ -25,7 +27,6 @@ public static class DependencyInjection
                 "Database connection string 'DefaultConnection' is not configured.");
         }
 
-        // NpgsqlDataSource havuzu
         services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
 
         services.AddDbContext<ApplicationDbContext>((provider, options) =>
@@ -45,7 +46,16 @@ public static class DependencyInjection
                 "Entur TimeoutSeconds must be greater than zero.")
             .ValidateOnStart();
 
-        // Gzip/Brotli dekompresyonu ile 714 KB'lik payload'u 182 KB olarak indirir
+        services.AddOptions<IngestionOptions>()
+            .Bind(configuration.GetSection(IngestionOptions.SectionName))
+            .Validate(
+                options => options.PollInterval > TimeSpan.Zero,
+                "Ingestion PollInterval must be greater than zero.")
+            .Validate(
+                options => options.Retention > TimeSpan.Zero,
+                "Ingestion Retention must be greater than zero.")
+            .ValidateOnStart();
+
         services
             .AddHttpClient<IVehicleFeedService, EnturVehicleFeedService>((provider, client) =>
             {
@@ -62,6 +72,9 @@ public static class DependencyInjection
             });
 
         services.AddSingleton<IVehiclePositionWriter, NpgsqlVehiclePositionWriter>();
+        
+        // Uygulama ayağa kalktığında otomatik başlayan arka plan veri toplama servisi
+        services.AddHostedService<VehicleIngestionWorker>();
 
         return services;
     }
