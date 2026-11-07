@@ -6,7 +6,6 @@ namespace VehicleTracker.Infrastructure.Persistence;
 
 public sealed class InMemoryVehicleLiveStateStore : IVehicleLiveStateStore
 {
-    // Araç ID'sine göre en güncel gözlemi tutan thread-safe sözlük
     private readonly ConcurrentDictionary<string, VehiclePositionRecord> _latestByVehicle = new();
 
     public IReadOnlyList<VehiclePositionRecord> GetAllLatest()
@@ -27,6 +26,19 @@ public sealed class InMemoryVehicleLiveStateStore : IVehicleLiveStateStore
                 record.VehicleId,
                 record,
                 (_, existing) => record.Timestamp >= existing.Timestamp ? record : existing);
+        }
+    }
+
+    public void PruneStaleVehicles(DateTime thresholdUtc)
+    {
+        var collection = (ICollection<KeyValuePair<string, VehiclePositionRecord>>)_latestByVehicle;
+        
+        foreach (var kvp in _latestByVehicle)
+        {
+            if (kvp.Value.Timestamp < thresholdUtc)
+            {
+                collection.Remove(kvp);
+            }
         }
     }
 }

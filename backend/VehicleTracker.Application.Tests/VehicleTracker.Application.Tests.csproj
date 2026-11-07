@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VehicleTracker.Application\VehicleTracker.Application.csproj" />
+    <ProjectReference Include="..\VehicleTracker.Infrastructure\VehicleTracker.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
