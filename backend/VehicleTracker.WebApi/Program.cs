@@ -33,7 +33,11 @@ builder.Services.AddCors(options =>
               .SetIsOriginAllowed(_ => true);
     });
 });
-
+// SignalR ve Publisher Kaydı
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<VehicleTracker.WebApi.Services.SignalRVehiclePublisher>();
+builder.Services.AddSingleton<IVehiclePublisher>(sp => sp.GetRequiredService<VehicleTracker.WebApi.Services.SignalRVehiclePublisher>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<VehicleTracker.WebApi.Services.SignalRVehiclePublisher>());
 var app = builder.Build();
 
 app.UseCors();
@@ -115,6 +119,8 @@ systemGroup.MapGet("/status", ([FromServices] ISystemMetricsService metrics) =>
 .WithName("GetSystemStatus")
 .WithSummary("Sistem durumu, son basarili okuma, saatlik yazim ve hata metriklerini doner.");
 
+// SignalR Hub Endpoint'i
+app.MapHub<VehicleTracker.WebApi.Hubs.VehicleHub>("/hubs/vehicles");
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.Run();

@@ -89,7 +89,7 @@ public sealed class VehicleIngestionWorker : BackgroundService
             _detector.Acknowledge(detection.Accepted, feed.PayloadSha256);
             
             _liveStore.Update(detection.Accepted);
-            await _publisher.PublishUpdatesAsync(detection.Accepted, cancellationToken);
+            await _publisher.EnqueueUpdatesAsync(detection.Accepted, cancellationToken);
 
             _metrics.RecordSuccessfulPoll(inserted);
 
