@@ -9,6 +9,7 @@ using VehicleTracker.Application.Ingestion;
 using VehicleTracker.Infrastructure.Ingestion;
 using VehicleTracker.Infrastructure.Options;
 using VehicleTracker.Infrastructure.Persistence;
+using VehicleTracker.Infrastructure.Retention;
 using VehicleTracker.Infrastructure.Services;
 
 namespace VehicleTracker.Infrastructure;
@@ -54,6 +55,9 @@ public static class DependencyInjection
             .Validate(
                 options => options.Retention > TimeSpan.Zero,
                 "Ingestion Retention must be greater than zero.")
+            .Validate(
+                options => options.CleanupInterval > TimeSpan.Zero,
+                "Ingestion CleanupInterval must be greater than zero.")
             .ValidateOnStart();
 
         services
@@ -71,10 +75,13 @@ public static class DependencyInjection
                 PooledConnectionLifetime = TimeSpan.FromMinutes(2)
             });
 
+        // Kalıcı veri yazıcı ve retention servisleri
         services.AddSingleton<IVehiclePositionWriter, NpgsqlVehiclePositionWriter>();
-        
-        // Uygulama ayağa kalktığında otomatik başlayan arka plan veri toplama servisi
+        services.AddSingleton<IVehicleRetentionService, TimescaleRetentionService>();
+
+        // Arka plan işçileri (Ingestion ve Retention)
         services.AddHostedService<VehicleIngestionWorker>();
+        services.AddHostedService<VehicleRetentionWorker>();
 
         return services;
     }

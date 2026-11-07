@@ -8,4 +8,7 @@ public sealed class IngestionOptions
 
     // Şartname gereği son 3 saat 
     public TimeSpan Retention { get; set; } = TimeSpan.FromHours(3);
+
+    // Otomatik retention temizleme döngüsü periyodu
+    public TimeSpan CleanupInterval { get; set; } = TimeSpan.FromMinutes(1);
 }
