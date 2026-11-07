@@ -1,7 +1,9 @@
+using Microsoft.Extensions.Options;
 using Npgsql;
 using NpgsqlTypes;
 using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.Application.Common.Models;
+using VehicleTracker.Application.Ingestion;
 using VehicleTracker.Domain.Entities;
 using VehicleTracker.Domain.Enums;
 
@@ -10,8 +12,9 @@ namespace VehicleTracker.Infrastructure.Persistence;
 public sealed class TimescaleVehicleHistoryService : IVehicleHistoryService
 {
     private const int CommandTimeoutSeconds = 15;
+    private readonly NpgsqlDataSource _dataSource;
+    private readonly IngestionOptions _options;
 
-    // ix_vehicle_positions_vehicle_id_observed_at indeksini doğrudan kullanan hızlı sayfalı sorgu
     private const string SelectHistorySql = """
         SELECT feed_entity_id, observed_at, vehicle_id, vehicle_label, trip_id, route_id,
                direction_id, latitude, longitude, bearing, speed, stop_id,
@@ -30,12 +33,19 @@ public sealed class TimescaleVehicleHistoryService : IVehicleHistoryService
           AND observed_at <= @to;
         """;
 
-    private readonly NpgsqlDataSource _dataSource;
-
-    public TimescaleVehicleHistoryService(NpgsqlDataSource dataSource)
+    public TimescaleVehicleHistoryService(NpgsqlDataSource dataSource, IOptions<IngestionOptions> options)
     {
         _dataSource = dataSource;
+        _options = options.Value;
     }
+
+    // API Sözleşmesi: Unspecified gelen tarihler UTC kabul edilir.
+    private static DateTime ToUtc(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+    };
 
     public async Task<PagedResult<VehiclePositionRecord>> GetHistoryAsync(
         VehicleHistoryQuery query, 
@@ -45,10 +55,20 @@ public sealed class TimescaleVehicleHistoryService : IVehicleHistoryService
         var pageSize = Math.Clamp(query.PageSize, 1, 500);
         var offset = (page - 1) * pageSize;
 
-        // Varsayılan aralık: Son 3 saat
         var now = DateTime.UtcNow;
-        var from = query.FromUtc ?? now.AddHours(-3);
-        var to = query.ToUtc ?? now;
+        var absoluteMinTime = now - _options.Retention;
+
+        var from = query.FromUtc.HasValue ? ToUtc(query.FromUtc.Value) : absoluteMinTime;
+        if (from < absoluteMinTime) from = absoluteMinTime;
+        if (from > now) from = now;
+
+        var to = query.ToUtc.HasValue ? ToUtc(query.ToUtc.Value) : now;
+        if (to > now) to = now;
+
+        if (from > to)
+        {
+            throw new ArgumentException("Gecersiz tarih araligi: 'from' degeri 'to' degerinden buyuk olamaz.");
+        }
 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = new NpgsqlCommand(SelectHistorySql, connection)
@@ -88,7 +108,6 @@ public sealed class TimescaleVehicleHistoryService : IVehicleHistoryService
             });
         }
 
-        // İkinci sorgudan TotalCount'u oku
         await reader.NextResultAsync(cancellationToken);
         await reader.ReadAsync(cancellationToken);
         var totalCount = Convert.ToInt32(reader.GetInt64(0));
