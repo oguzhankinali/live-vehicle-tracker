@@ -24,69 +24,82 @@ namespace VehicleTracker.Infrastructure.Migrations
 
             modelBuilder.Entity("VehicleTracker.Domain.Entities.VehiclePositionRecord", b =>
                 {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    b.Property<string>("FeedEntityId")
+                        .HasColumnType("text")
+                        .HasColumnName("feed_entity_id");
 
                     b.Property<DateTime>("Timestamp")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("observed_at");
 
                     b.Property<float?>("Bearing")
-                        .HasColumnType("real");
+                        .HasColumnType("real")
+                        .HasColumnName("bearing");
 
-                    b.Property<string>("CurrentStatus")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                    b.Property<short?>("CurrentStatus")
+                        .HasColumnType("smallint")
+                        .HasColumnName("current_status");
 
                     b.Property<long?>("CurrentStopSequence")
-                        .HasColumnType("bigint");
+                        .HasColumnType("bigint")
+                        .HasColumnName("current_stop_sequence");
 
                     b.Property<long?>("DirectionId")
-                        .HasColumnType("bigint");
+                        .HasColumnType("bigint")
+                        .HasColumnName("direction_id");
 
                     b.Property<double>("Latitude")
-                        .HasColumnType("double precision");
+                        .HasColumnType("double precision")
+                        .HasColumnName("latitude");
 
                     b.Property<double>("Longitude")
-                        .HasColumnType("double precision");
+                        .HasColumnType("double precision")
+                        .HasColumnName("longitude");
 
-                    b.Property<string>("OccupancyStatus")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                    b.Property<short?>("OccupancyStatus")
+                        .HasColumnType("smallint")
+                        .HasColumnName("occupancy_status");
+
+                    b.Property<DateTime>("ReceivedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at_utc");
 
                     b.Property<string>("RouteId")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("text")
+                        .HasColumnName("route_id");
 
                     b.Property<float?>("Speed")
-                        .HasColumnType("real");
+                        .HasColumnType("real")
+                        .HasColumnName("speed");
 
                     b.Property<string>("StopId")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("text")
+                        .HasColumnName("stop_id");
 
                     b.Property<string>("TripId")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("text")
+                        .HasColumnName("trip_id");
 
                     b.Property<string>("VehicleId")
                         .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("text")
+                        .HasColumnName("vehicle_id");
 
                     b.Property<string>("VehicleLabel")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("text")
+                        .HasColumnName("vehicle_label");
 
-                    b.HasKey("Id", "Timestamp");
+                    b.HasKey("FeedEntityId", "Timestamp")
+                        .HasName("pk_vehicle_positions");
 
-                    b.HasIndex("Timestamp");
+                    b.HasIndex("Timestamp")
+                        .HasDatabaseName("ix_vehicle_positions_observed_at");
 
-                    b.HasIndex("VehicleId", "Timestamp");
+                    b.HasIndex("VehicleId", "Timestamp")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_vehicle_positions_vehicle_id_observed_at");
 
-                    b.ToTable("VehiclePositions");
+                    b.ToTable("vehicle_positions", (string)null);
                 });
 #pragma warning restore 612, 618
         }
