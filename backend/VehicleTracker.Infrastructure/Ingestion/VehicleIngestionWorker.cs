@@ -12,6 +12,7 @@ public sealed class VehicleIngestionWorker : BackgroundService
     private readonly IVehiclePositionWriter _writer;
     private readonly IVehicleLiveStateStore _liveStore;
     private readonly ISystemMetricsService _metrics;
+    private readonly IVehiclePublisher _publisher;
     private readonly IngestionOptions _options;
     private readonly ILogger<VehicleIngestionWorker> _logger;
     private readonly SnapshotChangeDetector _detector = new();
@@ -21,6 +22,7 @@ public sealed class VehicleIngestionWorker : BackgroundService
         IVehiclePositionWriter writer,
         IVehicleLiveStateStore liveStore,
         ISystemMetricsService metrics,
+        IVehiclePublisher publisher,
         IOptions<IngestionOptions> options,
         ILogger<VehicleIngestionWorker> logger)
     {
@@ -28,6 +30,7 @@ public sealed class VehicleIngestionWorker : BackgroundService
         _writer = writer;
         _liveStore = liveStore;
         _metrics = metrics;
+        _publisher = publisher;
         _options = options.Value;
         _logger = logger;
     }
@@ -68,22 +71,34 @@ public sealed class VehicleIngestionWorker : BackgroundService
 
             if (detection.Accepted.Count == 0)
             {
+                // DB yazımı gerekmese bile bu SHA'yı gördüğümüzü onaylıyoruz
+                _detector.Acknowledge(detection.Accepted, feed.PayloadSha256);
                 _metrics.RecordSuccessfulPoll(0);
+                
+                _logger.LogInformation(
+                    "Poll tamamlandi: Toplam={Total}, Yeni=0, 3h Eski={Stale}, Sure={Ms}ms",
+                    feed.Records.Count,
+                    detection.SkippedOutsideRetention,
+                    (int)feed.Duration.TotalMilliseconds);
                 return;
             }
 
             var inserted = await _writer.WriteAsync(detection.Accepted, cancellationToken);
-            _detector.Acknowledge(detection.Accepted);
+            
+            // DB yazımı BAŞARILI olduktan sonra onaylıyoruz 
+            _detector.Acknowledge(detection.Accepted, feed.PayloadSha256);
+            
             _liveStore.Update(detection.Accepted);
+            await _publisher.PublishUpdatesAsync(detection.Accepted, cancellationToken);
 
-            // Metrikleri güncelle
             _metrics.RecordSuccessfulPoll(inserted);
 
             _logger.LogInformation(
-                "Ingestion: Toplam={Total} | Yazilan={Inserted} | 3h Eski={Stale} | Gecersiz=0 | Sure={Ms}ms",
+                "Ingestion: Toplam={Total} | Yazilan={Inserted} | 3h Eski={Stale} | Gecersiz={Invalid} | Sure={Ms}ms",
                 feed.Records.Count,
                 inserted,
                 detection.SkippedOutsideRetention,
+                feed.TotalSkipped, 
                 (int)feed.Duration.TotalMilliseconds);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)

@@ -47,8 +47,8 @@ public class SnapshotChangeDetectorTests
         var result1 = detector.Detect(Feed("SHA_1", Now, Record("e1", observedAt)), Retention);
         Assert.Single(result1.Accepted);
 
-        // 2. Poll: Veri kaybı olmaması için tekrar kabul edilmeli!
-        var result2 = detector.Detect(Feed("SHA_2", Now.AddSeconds(3), Record("e1", observedAt)), Retention);
+        // 2. Poll: Veri kaybı olmaması için aynı SHA tekrar kabul edilmeli!
+        var result2 = detector.Detect(Feed("SHA_1", Now, Record("e1", observedAt)), Retention);
         Assert.Single(result2.Accepted);
     }
 
@@ -59,7 +59,7 @@ public class SnapshotChangeDetectorTests
         var observedAt = Now.AddSeconds(-5);
 
         var result1 = detector.Detect(Feed("SHA_1", Now, Record("e1", observedAt)), Retention);
-        detector.Acknowledge(result1.Accepted); // DB'ye başarıyla yazıldı
+        detector.Acknowledge(result1.Accepted, "SHA_1"); // DB'ye başarıyla yazıldı
 
         // 2. Poll: Artık yazıldığı onaylandı, tekrar yazılmamalı
         var result2 = detector.Detect(Feed("SHA_2", Now.AddSeconds(3), Record("e1", observedAt)), Retention);
@@ -73,7 +73,7 @@ public class SnapshotChangeDetectorTests
         var detector = new SnapshotChangeDetector();
 
         var result1 = detector.Detect(Feed("SHA_1", Now, Record("e1", Now.AddSeconds(-20))), Retention);
-        detector.Acknowledge(result1.Accepted);
+        detector.Acknowledge(result1.Accepted, "SHA_1");
 
         var result2 = detector.Detect(Feed("SHA_2", Now.AddSeconds(3), Record("e1", Now.AddSeconds(-10))), Retention);
         Assert.Single(result2.Accepted);
@@ -94,14 +94,16 @@ public class SnapshotChangeDetectorTests
     }
 
     [Fact]
-    public void IdenticalPayloadSha_IsSkippedAsDuplicate()
+    public void IdenticalPayloadSha_AfterAcknowledge_IsSkippedAsDuplicate()
     {
         var detector = new SnapshotChangeDetector();
 
-        detector.Detect(Feed("SAME_SHA", Now, Record("e1", Now.AddSeconds(-5))), Retention);
-        var result = detector.Detect(Feed("SAME_SHA", Now, Record("e2", Now.AddSeconds(-1))), Retention);
+        var result1 = detector.Detect(Feed("SAME_SHA", Now, Record("e1", Now.AddSeconds(-5))), Retention);
+        detector.Acknowledge(result1.Accepted, "SAME_SHA");
 
-        Assert.Equal(SnapshotDisposition.DuplicatePayload, result.Disposition);
-        Assert.Empty(result.Accepted);
+        var result2 = detector.Detect(Feed("SAME_SHA", Now, Record("e2", Now.AddSeconds(-1))), Retention);
+
+        Assert.Equal(SnapshotDisposition.DuplicatePayload, result2.Disposition);
+        Assert.Empty(result2.Accepted);
     }
 }

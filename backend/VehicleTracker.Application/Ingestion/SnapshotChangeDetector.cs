@@ -25,7 +25,6 @@ public sealed class SnapshotChangeDetector
 
     public DetectionResult Detect(VehicleFeedResult feed, TimeSpan retention)
     {
-        // 1. Snapshot düzeyinde tam tekrar kontrolü (SHA256)
         if (feed.PayloadSha256 == _lastPayloadSha256)
         {
             return new DetectionResult(SnapshotDisposition.DuplicatePayload, NoRecords, 0, 0);
@@ -38,14 +37,12 @@ public sealed class SnapshotChangeDetector
 
         foreach (var record in feed.Records)
         {
-            // 2. Saklama penceresi dışındaki (3 saatten eski) kayıtları filtrele
             if (record.Timestamp < threshold)
             {
                 skippedOutsideRetention++;
                 continue;
             }
 
-            // 3. Entity bazında gözlem zamanı kontrolü
             if (_lastObservedByEntity.TryGetValue(record.FeedEntityId, out var lastObserved)
                 && record.Timestamp <= lastObserved)
             {
@@ -58,7 +55,8 @@ public sealed class SnapshotChangeDetector
 
         Prune(threshold);
 
-        _lastPayloadSha256 = feed.PayloadSha256;
+        //!! DİKKAT: _lastPayloadSha256 atamasını buradan kaldırdık. 
+        // Sadece DB'ye yazım başarılı olursa Acknowledge içinde güncellenecek.
 
         return new DetectionResult(
             SnapshotDisposition.Processed,
@@ -67,11 +65,8 @@ public sealed class SnapshotChangeDetector
             skippedNotNewer);
     }
 
-    /// <summary>
-    /// Kritik Güvenlik: Durum sadece veritabanına başarıyla yazılan kayıtlar için güncellenir.
-    /// DB yazımı başarısız olursa Acknowledge çağrılmaz ve sonraki poll'da veriler kaybolmaz.
-    /// </summary>
-    public void Acknowledge(IReadOnlyList<VehiclePositionRecord> processedRecords)
+    // Geleceğe Not: DB yazımı başarılı olduktan sonra hem entity zamanlarını hem de SHA'yı onaylıyoruz.
+    public void Acknowledge(IReadOnlyList<VehiclePositionRecord> processedRecords, string payloadSha256)
     {
         foreach (var record in processedRecords)
         {
@@ -81,6 +76,8 @@ public sealed class SnapshotChangeDetector
                 _lastObservedByEntity[record.FeedEntityId] = record.Timestamp;
             }
         }
+
+        _lastPayloadSha256 = payloadSha256;
     }
 
     private void Prune(DateTime threshold)
