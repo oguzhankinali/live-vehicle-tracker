@@ -1,8 +1,9 @@
-using VehicleTracker.Domain.Entities;
+using VehicleTracker.Application.Common.Models;
 
 namespace VehicleTracker.Application.Common.Interfaces;
 
 public interface IVehicleFeedService
 {
-    Task<IReadOnlyList<VehiclePositionRecord>> FetchLatestPositionsAsync(CancellationToken cancellationToken = default);
+    Task<VehicleFeedResult> FetchLatestPositionsAsync(
+        CancellationToken cancellationToken = default);
 }

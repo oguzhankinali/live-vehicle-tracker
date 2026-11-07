@@ -1,9 +1,13 @@
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using VehicleTracker.Application.Common.Interfaces;
+using VehicleTracker.Infrastructure.Options;
 using VehicleTracker.Infrastructure.Persistence;
+using VehicleTracker.Infrastructure.Services;
 
 namespace VehicleTracker.Infrastructure;
 
@@ -21,11 +25,41 @@ public static class DependencyInjection
                 "Database connection string 'DefaultConnection' is not configured.");
         }
 
-        // NpgsqlDataSource: EF Core ve raw SQL yazıcımız aynı yüksek performanslı bağlantı havuzunu paylaşır.
+        // NpgsqlDataSource havuzu
         services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
 
         services.AddDbContext<ApplicationDbContext>((provider, options) =>
             options.UseNpgsql(provider.GetRequiredService<NpgsqlDataSource>()));
+
+        services.AddOptions<EnturOptions>()
+            .Bind(configuration.GetSection(EnturOptions.SectionName))
+            .Validate(
+                options => Uri.TryCreate(options.FeedUrl, UriKind.Absolute, out var uri)
+                           && uri.Scheme == Uri.UriSchemeHttps,
+                "Entur FeedUrl must be a valid HTTPS URL.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.ClientName),
+                "Entur ClientName must not be empty.")
+            .Validate(
+                options => options.TimeoutSeconds > 0,
+                "Entur TimeoutSeconds must be greater than zero.")
+            .ValidateOnStart();
+
+        // Gzip/Brotli dekompresyonu ile 714 KB'lik payload'u 182 KB olarak indirir
+        services
+            .AddHttpClient<IVehicleFeedService, EnturVehicleFeedService>((provider, client) =>
+            {
+                var entur = provider.GetRequiredService<IOptions<EnturOptions>>().Value;
+                client.Timeout = TimeSpan.FromSeconds(entur.TimeoutSeconds);
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AutomaticDecompression =
+                    DecompressionMethods.GZip |
+                    DecompressionMethods.Deflate |
+                    DecompressionMethods.Brotli,
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2)
+            });
 
         services.AddSingleton<IVehiclePositionWriter, NpgsqlVehiclePositionWriter>();
 

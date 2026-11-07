@@ -9,7 +9,5 @@ public sealed class EnturOptions
 
     public string ClientName { get; set; } = string.Empty;
 
-    public int PollIntervalSeconds { get; set; } = 3;
-
-    public int RetentionHours { get; set; } = 3;
+    public int TimeoutSeconds { get; set; } = 10;
 }

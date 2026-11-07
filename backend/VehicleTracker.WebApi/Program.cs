@@ -1,6 +1,4 @@
 using VehicleTracker.Application.Common.Interfaces;
-using VehicleTracker.Domain.Entities;
-using VehicleTracker.Domain.Enums;
 using VehicleTracker.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,45 +9,31 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var writer = scope.ServiceProvider.GetRequiredService<IVehiclePositionWriter>();
-
-    var testTime = DateTime.UtcNow;
-    var testBatch = new List<VehiclePositionRecord>
-    {
-        new()
-        {
-            FeedEntityId = "test-entity-1",
-            VehicleId = "vehicle-101",
-            Latitude = 59.9139,
-            Longitude = 10.7522,
-            Timestamp = testTime,
-            ReceivedAtUtc = testTime,
-            CurrentStatus = VehicleStopStatus.InTransitTo,
-            OccupancyStatus = OccupancyStatus.ManySeatsAvailable
-        },
-        new()
-        {
-            FeedEntityId = "test-entity-2",
-            VehicleId = "vehicle-102",
-            Latitude = 60.3913,
-            Longitude = 5.3221,
-            Timestamp = testTime,
-            ReceivedAtUtc = testTime,
-            CurrentStatus = VehicleStopStatus.StoppedAt,
-            OccupancyStatus = OccupancyStatus.Empty
-        }
-    };
+    var feedService = scope.ServiceProvider.GetRequiredService<IVehicleFeedService>();
 
     Console.WriteLine("==================================================");
-    Console.WriteLine("BULK WRITER TESTI BASLIYOR");
-    
-    // 1. İlk yazım: 2 satır eklenmeli
-    var firstInsert = await writer.WriteAsync(testBatch);
-    Console.WriteLine($"1. Deneme (Yeni kayitlar)       : {firstInsert} satir eklendi (Beklenen: 2)");
+    Console.WriteLine("ENTUR FEED NORMALIZASYON VE VERI DOGRULAMA TESTI");
+    Console.WriteLine("==================================================");
 
-    // 2. İkinci yazım (aynı veriler): 0 satır eklenmeli (ON CONFLICT DO NOTHING)
-    var duplicateInsert = await writer.WriteAsync(testBatch);
-    Console.WriteLine($"2. Deneme (Ayni kayitlar tekrar): {duplicateInsert} satir eklendi (Beklenen: 0 - Idempotent)");
+    var result = await feedService.FetchLatestPositionsAsync();
+
+    Console.WriteLine($"Toplam Basariyla Parse Edilen: {result.Records.Count:N0}");
+    Console.WriteLine($"Payload Boyutu (Byte)        : {result.PayloadSizeBytes:N0}");
+    Console.WriteLine($"Payload SHA256               : {result.PayloadSha256[..16]}...");
+    Console.WriteLine($"HTTP + Parse Suresi          : {result.Duration.TotalMilliseconds:N0} ms");
+    Console.WriteLine($"Gecersiz/Bozuk Atlanan Kayit : {result.TotalSkipped}");
+
+    var sample = result.Records.FirstOrDefault(r => r.RouteId != null && r.StopId != null);
+    if (sample != null)
+    {
+        Console.WriteLine("\nORNEK NORMALIZED KAYIT:");
+        Console.WriteLine($"  FeedEntityId: {sample.FeedEntityId}");
+        Console.WriteLine($"  VehicleId   : {sample.VehicleId}");
+        Console.WriteLine($"  RouteId     : {sample.RouteId}");
+        Console.WriteLine($"  DirectionId : {sample.DirectionId?.ToString() ?? "null"} (long?)");
+        Console.WriteLine($"  Konum       : ({sample.Latitude}, {sample.Longitude})");
+        Console.WriteLine($"  Zaman (UTC) : {sample.Timestamp:yyyy-MM-dd HH:mm:ss}");
+    }
     Console.WriteLine("==================================================");
 }
 
