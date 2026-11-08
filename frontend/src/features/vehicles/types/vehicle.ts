@@ -1,7 +1,9 @@
+import { z } from "zod";
+
 export enum VehicleStopStatus {
   IncomingAt = 0,
   StoppedAt = 1,
-  InTransitTo = 2
+  InTransitTo = 2,
 }
 
 export enum OccupancyStatus {
@@ -13,27 +15,31 @@ export enum OccupancyStatus {
   Full = 5,
   NotAcceptingPassengers = 6,
   NoDataAvailable = 7,
-  NotBoardable = 8
+  NotBoardable = 8,
 }
 
-export interface VehiclePositionRecord {
-  feedEntityId: string;
-  vehicleId: string;
-  vehicleLabel: string | null;
-  tripId: string | null;
-  routeId: string | null;
-  directionId: number | null;
-  latitude: number;
-  longitude: number;
-  bearing: number | null;
-  speed: number | null;
-  stopId: string | null;
-  currentStopSequence: number | null;
-  currentStatus: VehicleStopStatus | null;
-  occupancyStatus: OccupancyStatus | null;
-  timestamp: string;
-  receivedAtUtc: string;
-}
+// Backend VehiclePositionRecord modelinin Zod şeması
+export const vehiclePositionRecordSchema = z.object({
+  feedEntityId: z.string(),
+  vehicleId: z.string(),
+  vehicleLabel: z.string().nullable().optional(),
+  tripId: z.string().nullable().optional(),
+  routeId: z.string().nullable().optional(),
+  directionId: z.number().nullable().optional(),
+  latitude: z.number(),
+  longitude: z.number(),
+  bearing: z.number().nullable().optional(),
+  speed: z.number().nullable().optional(),
+  stopId: z.string().nullable().optional(),
+  currentStopSequence: z.number().nullable().optional(),
+  currentStatus: z.nativeEnum(VehicleStopStatus).nullable().optional(),
+  occupancyStatus: z.nativeEnum(OccupancyStatus).nullable().optional(),
+  timestamp: z.string(),
+  receivedAtUtc: z.string(),
+});
+
+// TypeScript tipini doğrudan Zod şemasından türetiyoruz (çift tanım hatasını önler)
+export type VehiclePositionRecord = z.infer<typeof vehiclePositionRecordSchema>;
 
 export interface PagedResult<T> {
   items: T[];

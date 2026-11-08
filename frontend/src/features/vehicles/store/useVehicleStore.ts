@@ -1,171 +1,134 @@
-import { create } from 'zustand';
-import { HubConnection, HubConnectionBuilder, LogLevel, HttpTransportType, HubConnectionState, IRetryPolicy } from '@microsoft/signalr';
-import { VehiclePositionRecord } from '../types/vehicle';
+import { create } from "zustand";
+import { VehiclePositionRecord } from "../types/vehicle";
 
-type ConnectionStatus = 'Connected' | 'Connecting' | 'Reconnecting' | 'Disconnected';
+export type ConnectionStatus = "Connected" | "Connecting" | "Reconnecting" | "Disconnected";
 
-interface VehicleStore {
+interface VehicleState {
   vehicles: Record<string, VehiclePositionRecord>;
   connectionStatus: ConnectionStatus;
   selectedVehicleId: string | null;
+  lastMessageReceivedAt: number | null;
+  totalVehicleCount: number;
+
+  // Arama ve Filtre Durumları
   searchQuery: string;
   routeQuery: string;
-  
-  connect: () => void;
-  disconnect: () => Promise<void>;
+
+  // Haritada çizilen geçmiş rota koordinatları [lon, lat]
+  historyTrailPoints: [number, number][];
+
+  // Aksiyonlar
+  setConnectionStatus: (status: ConnectionStatus) => void;
+  setSnapshot: (snapshot: VehiclePositionRecord[]) => void;
+  batchUpdateVehicles: (updates: VehiclePositionRecord[]) => void;
   setSelectedVehicleId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setRouteQuery: (query: string) => void;
+  setHistoryTrailPoints: (points: [number, number][]) => void;
+  clearHistoryTrail: () => void;
+  evictStaleVehicles: (maxAgeMs?: number) => void;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5086';
-
-class InfiniteRetryPolicy implements IRetryPolicy {
-  nextRetryDelayInMilliseconds(retryContext: { previousRetryCount: number }): number | null {
-    const delays = [0, 2000, 5000, 10000];
-    if (retryContext.previousRetryCount < delays.length) {
-      return delays[retryContext.previousRetryCount];
-    }
-    return 30000;
-  }
-}
-
-let activeConnection: HubConnection | null = null;
-let startPromise: Promise<void> | null = null;
-let isIntentionalDisconnect = false;
-
-function mergeVehicles(
+// Gelen yeni verileri mevcut harita verisiyle akıllıca birleştiren saf yardımcı fonksiyon
+function mergeRecords(
   current: Record<string, VehiclePositionRecord>,
-  incomingList: VehiclePositionRecord[]
+  incoming: VehiclePositionRecord[]
 ): Record<string, VehiclePositionRecord> {
-  const updated = { ...current };
+  if (!incoming || incoming.length === 0) return current;
 
-  for (let i = 0; i < incomingList.length; i++) {
-    const incoming = incomingList[i];
-    if (!incoming.vehicleId) continue;
+  const next = { ...current };
+  let hasChanges = false;
 
-    const existing = updated[incoming.vehicleId];
-    const incomingTime = new Date(incoming.timestamp).getTime();
-    const existingTime = existing ? new Date(existing.timestamp).getTime() : 0;
+  for (let i = 0; i < incoming.length; i++) {
+    const item = incoming[i];
+    if (!item.vehicleId) continue;
 
-    if (!existing || incomingTime >= existingTime) {
-      updated[incoming.vehicleId] = incoming;
+    const existing = next[item.vehicleId];
+    if (!existing) {
+      next[item.vehicleId] = item;
+      hasChanges = true;
+      continue;
+    }
+
+    // Zaman damgası kontrolü: Yalnızca mevcut veriden daha yeni ölçüm geldiyse güncelle
+    const incomingTime = new Date(item.timestamp).getTime();
+    const existingTime = new Date(existing.timestamp).getTime();
+
+    if (incomingTime >= existingTime) {
+      next[item.vehicleId] = item;
+      hasChanges = true;
     }
   }
 
-  return updated;
+  return hasChanges ? next : current;
 }
 
-export const useVehicleStore = create<VehicleStore>((set, get) => ({
+export const useVehicleStore = create<VehicleState>((set) => ({
   vehicles: {},
-  connectionStatus: 'Disconnected',
+  connectionStatus: "Disconnected",
   selectedVehicleId: null,
-  searchQuery: '',
-  routeQuery: '',
+  lastMessageReceivedAt: null,
+  totalVehicleCount: 0,
+  searchQuery: "",
+  routeQuery: "",
+  historyTrailPoints: [],
 
-  setSelectedVehicleId: (id) => set({ selectedVehicleId: id }),
-  setSearchQuery: (searchQuery) => set({ searchQuery }),
-  setRouteQuery: (routeQuery) => set({ routeQuery }),
+  setConnectionStatus: (status) => set({ connectionStatus: status }),
 
-  connect: () => {
-    // 1. Zaten bağlıysa veya bağlanma işlemi devam ediyorsa ikinci kez başlatma
-    if (activeConnection && activeConnection.state !== HubConnectionState.Disconnected) {
-      return;
+  setSnapshot: (snapshot) => {
+    const map: Record<string, VehiclePositionRecord> = {};
+    for (let i = 0; i < snapshot.length; i++) {
+      const v = snapshot[i];
+      if (v.vehicleId) {
+        map[v.vehicleId] = v;
+      }
     }
-    if (startPromise) {
-      return;
-    }
-
-    isIntentionalDisconnect = false;
-    set({ connectionStatus: 'Connecting' });
-
-    // REST başlangıç verisini paralel çek
-    fetch(`${API_BASE_URL}/api/vehicles/latest`)
-      .then(async (res) => {
-        if (res.ok) {
-          const data: VehiclePositionRecord[] = await res.json();
-          set((state) => ({ vehicles: mergeVehicles(state.vehicles, data) }));
-          console.log(`[REST] ${data.length} araç RAM'den yüklendi.`);
-        }
-      })
-      .catch((err) => console.warn('[REST] İlk veri alınamadı:', err));
-
-    const connection = new HubConnectionBuilder()
-      .withUrl(`${API_BASE_URL}/hubs/vehicles`, {
-        skipNegotiation: true,
-        transport: HttpTransportType.WebSockets
-      })
-      .withAutomaticReconnect(new InfiniteRetryPolicy())
-      .configureLogging(LogLevel.Warning)
-      .build();
-
-    activeConnection = connection;
-
-    connection.onreconnecting(() => set({ connectionStatus: 'Reconnecting' }));
-    connection.onreconnected(() => set({ connectionStatus: 'Connected' }));
-    connection.onclose(() => {
-      set({ connectionStatus: 'Disconnected' });
-      activeConnection = null;
-      startPromise = null;
+    set({
+      vehicles: map,
+      totalVehicleCount: Object.keys(map).length,
+      lastMessageReceivedAt: Date.now(),
     });
-
-    connection.on('ReceiveSnapshot', (snapshot: VehiclePositionRecord[]) => {
-      if (!Array.isArray(snapshot)) return;
-      console.log(`[SignalR] Snapshot alındı: ${snapshot.length} araç.`);
-      set((state) => ({ vehicles: mergeVehicles(state.vehicles, snapshot) }));
-    });
-
-    connection.on('ReceiveUpdates', (updates: VehiclePositionRecord[]) => {
-      if (!Array.isArray(updates)) return;
-      set((state) => ({ vehicles: mergeVehicles(state.vehicles, updates) }));
-    });
-
-    // Kendime not: start() işlemini Promise olarak saklıyoruz. React Strict Mode hemen stop()
-    // çağırırsa el sıkışma bitmeden stop() yapılmasını engellemek için bu vaat beklenir.
-    startPromise = connection.start()
-      .then(() => {
-        set({ connectionStatus: 'Connected' });
-        console.log('[SignalR] Tekil WebSocket bağlantısı sağlandı.');
-      })
-      .catch((err) => {
-        // Strict Mode unmount'u veya kasıtlı kapatma iptallerini hata sayıp konsolu kirletme
-        if (err.name === 'AbortError' || isIntentionalDisconnect) {
-          return;
-        }
-        console.error('[SignalR] Bağlantı hatası, tekrar denenecek:', err);
-        activeConnection = null;
-        set({ connectionStatus: 'Disconnected' });
-
-        if (!isIntentionalDisconnect) {
-          setTimeout(() => get().connect(), 5000);
-        }
-      })
-      .finally(() => {
-        startPromise = null;
-      });
   },
 
-  disconnect: async () => {
-    isIntentionalDisconnect = true;
+  batchUpdateVehicles: (updates) => {
+    set((state) => {
+      const merged = mergeRecords(state.vehicles, updates);
+      return {
+        vehicles: merged,
+        totalVehicleCount: Object.keys(merged).length,
+        lastMessageReceivedAt: Date.now(),
+      };
+    });
+  },
 
-    // Eğer henüz start() işlemi devam ediyorsa, bitmesini bekle ki 'stop before start' hatası vermesin
-    if (startPromise) {
-      try {
-        await startPromise;
-      } catch {
-        // İptal hatalarını yut
-      }
-    }
+  setSelectedVehicleId: (id) => set({ selectedVehicleId: id, historyTrailPoints: [] }),
+  setSearchQuery: (searchQuery) => set({ searchQuery }),
+  setRouteQuery: (routeQuery) => set({ routeQuery }),
+  setHistoryTrailPoints: (historyTrailPoints) => set({ historyTrailPoints }),
+  clearHistoryTrail: () => set({ historyTrailPoints: [] }),
 
-    if (activeConnection) {
-      const conn = activeConnection;
-      activeConnection = null;
-      try {
-        await conn.stop();
-      } catch {
-        // Kapanış hatalarını yut
+  // Bellek sızıntısını ve hayalet araçları önlemek için belirlenen süreden eski araçları siler
+  evictStaleVehicles: (maxAgeMs = 15 * 60 * 1000) => {
+    set((state) => {
+      const now = Date.now();
+      const next: Record<string, VehiclePositionRecord> = {};
+      let changed = false;
+
+      for (const [id, vehicle] of Object.entries(state.vehicles)) {
+        const vehicleTime = new Date(vehicle.timestamp).getTime();
+        if (now - vehicleTime <= maxAgeMs) {
+          next[id] = vehicle;
+        } else {
+          changed = true;
+        }
       }
-      set({ connectionStatus: 'Disconnected' });
-    }
-  }
+
+      if (!changed) return state;
+
+      return {
+        vehicles: next,
+        totalVehicleCount: Object.keys(next).length,
+      };
+    });
+  },
 }));
