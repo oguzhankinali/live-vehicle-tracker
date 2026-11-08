@@ -3,13 +3,14 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.Application.Ingestion;
+using VehicleTracker.Infrastructure.Persistence;
 
 namespace VehicleTracker.Infrastructure.Ingestion;
 
 public sealed class VehicleIngestionWorker : BackgroundService
 {
     private readonly IVehicleFeedService _feedService;
-    private readonly IVehiclePositionWriter _writer;
+    private readonly DbWriteQueue _dbQueue; // YENİ: Doğrudan writer yerine kuyruk kullanıyoruz
     private readonly IVehicleLiveStateStore _liveStore;
     private readonly ISystemMetricsService _metrics;
     private readonly IVehiclePublisher _publisher;
@@ -19,7 +20,7 @@ public sealed class VehicleIngestionWorker : BackgroundService
 
     public VehicleIngestionWorker(
         IVehicleFeedService feedService,
-        IVehiclePositionWriter writer,
+        DbWriteQueue dbQueue,
         IVehicleLiveStateStore liveStore,
         ISystemMetricsService metrics,
         IVehiclePublisher publisher,
@@ -27,7 +28,7 @@ public sealed class VehicleIngestionWorker : BackgroundService
         ILogger<VehicleIngestionWorker> logger)
     {
         _feedService = feedService;
-        _writer = writer;
+        _dbQueue = dbQueue;
         _liveStore = liveStore;
         _metrics = metrics;
         _publisher = publisher;
@@ -72,7 +73,6 @@ public sealed class VehicleIngestionWorker : BackgroundService
 
             if (detection.Accepted.Count == 0)
             {
-                // DB yazımı gerekmese bile bu SHA'yı gördüğümüzü onaylıyoruz
                 _detector.Acknowledge(detection.Accepted, feed.PayloadSha256);
                 _metrics.RecordSuccessfulPoll(0);
                 
@@ -84,22 +84,25 @@ public sealed class VehicleIngestionWorker : BackgroundService
                 return;
             }
 
-            var inserted = await _writer.WriteAsync(detection.Accepted, cancellationToken);
-            
-            // DB yazımı BAŞARILI olduktan sonra onaylıyoruz 
-            _detector.Acknowledge(detection.Accepted, feed.PayloadSha256);
-            
+            // 1. Canlı RAM'i güncelle (DB'yi beklemeden!)
             _liveStore.Update(detection.Accepted);
+
+            // 2. SignalR üzerinden anında yayınla (DB'yi beklemeden!)
             await _publisher.EnqueueUpdatesAsync(detection.Accepted, cancellationToken);
 
-            _metrics.RecordSuccessfulPoll(inserted);
+            // 3. DB'ye yazılması için kuyruğa at (DbWriterWorker arka planda retry ile yazacak)
+            await _dbQueue.EnqueueAsync(detection.Accepted, cancellationToken);
+
+            // 4. Onayla ve metrikleri güncelle
+            _detector.Acknowledge(detection.Accepted, feed.PayloadSha256);
+            _metrics.RecordSuccessfulPoll(detection.Accepted.Count);
 
             _logger.LogInformation(
-                "Ingestion: Toplam={Total} | Yazilan={Inserted} | 3h Eski={Stale} | Gecersiz={Invalid} | Sure={Ms}ms",
+                "Ingestion: Toplam={Total} | Kuyruga Alinan={Inserted} | 3h Eski={Stale} | Gecersiz={Invalid} | Sure={Ms}ms",
                 feed.Records.Count,
-                inserted,
+                detection.Accepted.Count,
                 detection.SkippedOutsideRetention,
-                feed.TotalSkipped, 
+                feed.TotalSkipped,
                 (int)feed.Duration.TotalMilliseconds);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
