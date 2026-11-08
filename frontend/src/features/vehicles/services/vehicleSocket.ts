@@ -12,19 +12,18 @@ import { VehiclePositionRecord } from "../types/vehicle";
 class VehicleSocketService {
   private connection: HubConnection | null = null;
   private isConnecting = false;
-  private isExplicitlyStopped = false;
+  private reconnectTimer: NodeJS.Timeout | null = null;
 
   public async connect(): Promise<void> {
-    if (this.connection && this.connection.state !== HubConnectionState.Disconnected) {
+    if (this.connection && this.connection.state === HubConnectionState.Connected) {
       return;
     }
     if (this.isConnecting) return;
 
     this.isConnecting = true;
-    this.isExplicitlyStopped = false;
     useVehicleStore.getState().setConnectionStatus("Connecting");
 
-    // İlk açılışta REST API'den anlık snapshot çekiyoruz
+    // İlk açılışta REST API'den güncel durumu çek
     this.fetchLatestSnapshot();
 
     this.connection = new HubConnectionBuilder()
@@ -40,7 +39,7 @@ class VehicleSocketService {
       useVehicleStore.getState().setConnectionStatus("Reconnecting");
     });
 
-    // Şartname 3.2: Reconnect olduğunda kayıp verileri kurtarmak için REST üzerinden güncel durumu tazele
+    // Şartname 3.2: Yeniden bağlanıldığında kayıp verileri kurtarmak için REST ile tazele
     this.connection.onreconnected(() => {
       useVehicleStore.getState().setConnectionStatus("Connected");
       this.fetchLatestSnapshot();
@@ -48,19 +47,17 @@ class VehicleSocketService {
 
     this.connection.onclose(() => {
       useVehicleStore.getState().setConnectionStatus("Disconnected");
-      if (!this.isExplicitlyStopped) {
-        setTimeout(() => this.connect(), 5000);
-      }
+      this.scheduleReconnect();
     });
 
-    // Sunucudan gelen ilk tam liste
+    // Sunucudan gelen ilk tam liste (Ezmek yerine akıllıca birleştiriyoruz)
     this.connection.on("ReceiveSnapshot", (snapshot: VehiclePositionRecord[]) => {
       if (Array.isArray(snapshot)) {
-        useVehicleStore.getState().setSnapshot(snapshot);
+        useVehicleStore.getState().batchUpdateVehicles(snapshot);
       }
     });
 
-    // Sunucudan 3 saniyede bir gelen değişen araçlar listesi
+    // Sunucudan 3 saniyede bir gelen değişen araçlar
     this.connection.on("ReceiveUpdates", (updates: VehiclePositionRecord[]) => {
       if (Array.isArray(updates)) {
         useVehicleStore.getState().batchUpdateVehicles(updates);
@@ -72,27 +69,37 @@ class VehicleSocketService {
       useVehicleStore.getState().setConnectionStatus("Connected");
     } catch {
       useVehicleStore.getState().setConnectionStatus("Disconnected");
-      if (!this.isExplicitlyStopped) {
-        setTimeout(() => this.connect(), 5000);
-      }
+      this.scheduleReconnect();
     } finally {
       this.isConnecting = false;
     }
   }
 
   public async disconnect(): Promise<void> {
-    this.isExplicitlyStopped = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     if (this.connection) {
       try {
         await this.connection.stop();
       } finally {
         this.connection = null;
+        this.isConnecting = false;
         useVehicleStore.getState().setConnectionStatus("Disconnected");
       }
     }
   }
 
-  // Kopukluk anında veya ilk yüklemede belleği güncelleyen REST çağrısı
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer) return;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect();
+    }, 5000);
+  }
+
   private async fetchLatestSnapshot(): Promise<void> {
     try {
       const response = await fetch(`${ENV.API_BASE_URL}/api/vehicles/latest`);
