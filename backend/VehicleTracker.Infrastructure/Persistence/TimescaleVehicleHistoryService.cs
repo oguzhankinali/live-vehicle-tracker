@@ -59,8 +59,14 @@ public sealed class TimescaleVehicleHistoryService : IVehicleHistoryService
         var absoluteMinTime = now - _options.Retention;
 
         var from = query.FromUtc.HasValue ? ToUtc(query.FromUtc.Value) : absoluteMinTime;
+        
+        // DÜZELTME: from gelecekte olamaz
+        if (from > now)
+        {
+            throw new ArgumentException("Gecersiz tarih: 'from' degeri gelecekte olamaz.");
+        }
+        
         if (from < absoluteMinTime) from = absoluteMinTime;
-        if (from > now) from = now;
 
         var to = query.ToUtc.HasValue ? ToUtc(query.ToUtc.Value) : now;
         if (to > now) to = now;
@@ -69,6 +75,7 @@ public sealed class TimescaleVehicleHistoryService : IVehicleHistoryService
         {
             throw new ArgumentException("Gecersiz tarih araligi: 'from' degeri 'to' degerinden buyuk olamaz.");
         }
+        
 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = new NpgsqlCommand(SelectHistorySql, connection)
