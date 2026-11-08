@@ -10,7 +10,7 @@ namespace VehicleTracker.Infrastructure.Ingestion;
 public sealed class VehicleIngestionWorker : BackgroundService
 {
     private readonly IVehicleFeedService _feedService;
-    private readonly DbWriteQueue _dbQueue; // YENİ: Doğrudan writer yerine kuyruk kullanıyoruz
+    private readonly DbWriteQueue _dbQueue;
     private readonly IVehicleLiveStateStore _liveStore;
     private readonly ISystemMetricsService _metrics;
     private readonly IVehiclePublisher _publisher;
@@ -56,6 +56,10 @@ public sealed class VehicleIngestionWorker : BackgroundService
         {
             _logger.LogInformation("VehicleIngestionWorker durduruluyor.");
         }
+        finally
+        {
+            _dbQueue.Complete(); // Kapanışta kuyruğa yeni veri gelmeyeceğini bildir
+        }
     }
 
     private async Task IngestOnceAsync(CancellationToken cancellationToken)
@@ -95,7 +99,10 @@ public sealed class VehicleIngestionWorker : BackgroundService
 
             // 4. Onayla ve metrikleri güncelle
             _detector.Acknowledge(detection.Accepted, feed.PayloadSha256);
-            _metrics.RecordSuccessfulPoll(detection.Accepted.Count);
+            
+            // DÜZELTME: Artık yazılan kayıt sayısını DbWriterWorker sayıyor.
+            // Biz sadece okuma başarılı oldu demek için 0 gönderiyoruz.
+            _metrics.RecordSuccessfulPoll(0); 
 
             _logger.LogInformation(
                 "Ingestion: Toplam={Total} | Kuyruga Alinan={Inserted} | 3h Eski={Stale} | Gecersiz={Invalid} | Sure={Ms}ms",

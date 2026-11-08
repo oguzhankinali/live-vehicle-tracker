@@ -1,0 +1,125 @@
+﻿==================================================
+ENTUR FEED PROBE  (yalnizca olcum, DB'ye yazmaz)
+Baslangic (UTC) : 2026-11-06 23:04:55
+Sure / aralik   : 15 dk / 3 sn
+Feed            : https://api.entur.io/realtime/v1/gtfs-rt/vehicle-positions
+==================================================
+SIKISTIRMA TESTI: HTTP 200 | Content-Encoding=gzip | govde 182.355 byte
+
+YANIT HEADER'LARI (ilgili olanlar):
+  Accept-Encoding: gzip
+  x-b3-sampled: 0
+  x-b3-spanid: 27b0f1f53c300e34
+  x-b3-traceid: 9f43b96daa3cc27927b0f1f53c300e34
+  x-cloud-trace-context: 6ead3d6ac747ea62ab4ddc78fd201d34/3755831242894973632
+  x-forwarded-proto: https
+  X-Request-ID: c1b5a214-aaf7-447c-8809-8b4d7e746b62
+  Date: Fri, 06 Nov 2026 23:04:56 GMT
+  Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  x-robots-tag: none
+  Access-Control-Max-Age: 3628800
+  x-accel-buffering: no
+  Via: 1.1 google
+  Transfer-Encoding: chunked
+
+
+==================================================
+RAPOR
+==================================================
+Bitis (UTC)               : 2026-11-06 23:19:58  (Norvec yerel saati = UTC+1, Kasim)
+Toplam poll / basarili    : 300 / 300
+Hatalar                   : yok
+
+1) SURE VE BOYUT
+  HTTP (govde dahil)      : min 157 | p50 196 | p95 237 | max 739 ms
+  Protobuf parse          : min 1 | p50 4 | p95 19 | max 30 ms
+  Payload boyutu          : min 696.886 | p50 713.922 | p95 727.101 | max 729.316 byte
+  Entity sayisi / poll    : min 3.482 | p50 3.567 | p95 3.633 | max 3.644
+
+2) SNAPSHOT DAVRANISI
+  Farkli payload (SHA256)          : 165 / 300 poll
+  Onceki ile ayni payload          : 118
+  Header zamani GERIYE giden       : 31 (en fazla 5 sn geride)
+  Kabul edilen (ileri) snapshot    : 151
+  Farkli header zamani sayisi      : 165
+  AYNI header, FARKLI payload      : 0 header degeri
+  Header adimi (ileri)             : min 5 | p50 5 | p95 10 | max 10 sn
+  Kaynak gecikmesi (alinma-header) : min 0 | p50 5 | p95 10 | max 11 sn
+
+3) VERI KALITESI (poll basina)
+  Entity (vehicle mesaji olan)     : min 3.482 | ort 3.564 | max 3.644
+  Vehicle mesaji OLMAYAN entity    : min 0 | ort 0 | max 0
+  VehicleDescriptor yok            : min 0 | ort 0 | max 0
+  VehicleId bos string             : min 0 | ort 0 | max 0
+  VehicleId sadece bosluk          : min 0 | ort 0 | max 0
+  VehicleId == FeedEntityId        : min 0 | ort 0 | max 0
+  VehicleId var, FeedEntityId'den farkli: min 3.482 | ort 3.564 | max 3.644
+  Zaman damgasi YOK                : min 0 | ort 0 | max 0
+  Zaman damgasi 0                  : min 0 | ort 0 | max 0
+  Position yok                     : min 0 | ort 0 | max 0
+  Koordinat (0,0)                  : min 0 | ort 0 | max 0
+  Gecersiz koordinat               : min 0 | ort 0 | max 0
+  TripId yok/bos                   : min 0 | ort 0 | max 0
+  RouteId yok/bos                  : min 459 | ort 475 | max 495
+  StopId yok/bos                   : min 84 | ort 94 | max 104
+  CurrentStopSequence yok          : min 1.131 | ort 1.145 | max 1.165
+  CurrentStatus yok                : min 84 | ort 92 | max 101
+
+4) VEHICLE ID ANALIZI (son snapshot)
+  Entity sayisi                    : 3.482
+  Kullanilabilir VehicleId         : 3.482 (benzersiz: 862)
+  VehicleId yok/bos                : 0
+    bunlardan Label'i olan         : 0
+    bunlardan TripId'si olan       : 0
+  Birden fazla entity'li VehicleId : 482 grup (toplam 3.102 entity)
+    VehicleId=258010350 | entity=49 | farkli TripId=49 | farkli zaman damgasi=49
+      entity ornekleri: BRA:ServiceJourney:6660_260630061448329_1072-20261106-258010350, BRA:ServiceJourney:6660_260630061448290_1033-20261106-258010350, BRA:ServiceJourney:6660_260630061448332_1075-20261106-258010350
+    VehicleId=258002060 | entity=35 | farkli TripId=35 | farkli zaman damgasi=35
+      entity ornekleri: KOL:ServiceJourney:5958_250903083240238_7016-20261106-258002060, KOL:ServiceJourney:5958_250903083240249_7036-20261106-258002060, KOL:ServiceJourney:5958_250903083240309_8044-20261106-258002060
+    VehicleId=257253400 | entity=32 | farkli TripId=32 | farkli zaman damgasi=32
+      entity ornekleri: ATB:ServiceJourney:985_260106098641733_44-20261106-257253400, ATB:ServiceJourney:985_260106098641724_26-20261106-257253400, ATB:ServiceJourney:985_260106098641789_33-20261106-257253400
+    VehicleId=259044800 | entity=29 | farkli TripId=29 | farkli zaman damgasi=29
+      entity ornekleri: NOR:ServiceJourney:8538_251012124857030_1008-20261106-259044800, NOR:ServiceJourney:8538_251012124857095_2016-20261106-259044800, NOR:ServiceJourney:8538_251012124857037_1016-20261106-259044800
+  Ornek satirlar (EntityId | VehicleId | Label | TripId):
+    ATB:ServiceJourney:985_260106098641733_44-20261106-257253400 | 257253400 | - | ATB:ServiceJourney:985_260106098641733_44
+    BRA:ServiceJourney:6024_260630061453279_1094-20261106-3620803739 | 3620803739 | - | BRA:ServiceJourney:6024_260630061453279_1094
+    AKT:ServiceJourney:57043_271_2_136200_136620_3932612-20261106-3360918940 | 3360918940 | - | AKT:ServiceJourney:57043_271_2_136200_136620_3932612
+
+5) ZAMAN DAMGASI YASI (son snapshot)
+  zaman damgasi YOK   :      0  (%0,0)
+  gelecek (>60 sn)    :      0  (%0,0)
+  < 1 dk              :    327  (%9,4)
+  1-5 dk              :     26  (%0,7)
+  5-30 dk             :    139  (%4,0)
+  30 dk - 3 sa        :    852  (%24,5)
+  3-24 sa             :  2.138  (%61,4)
+  > 24 sa             :      0  (%0,0)
+
+6) ESKI (>3 SA) KAYITLAR KOSU BOYUNCA GUNCELLENDI MI?
+  Basta 3 saatten eski             : 2.168
+  Bunlardan zaman damgasi ilerleyen: 0
+  Bunlardan sonda feed'de olmayan  : 142
+
+7) DEGISIM ANALIZI (kabul edilen ardisik snapshot'lar, FeedEntityId bazinda)
+  Karsilastirilan entity cifti          : 534.329
+  Zaman damgasi ilerledi                : 33.942
+  Zaman damgasi geriledi                : 0
+  Zaman damgasi ayni                    : 500.387
+  Zaman damgasi (biri/ikisi) yok        : 0
+  Konum degisti                         : 31.357
+  Ilerledi ama icerik ayni              : 2.375
+  AYNI zaman damgasi + icerik degisti   : 0 (bunlardan konum degisen: 0)
+  Yeni entity / kaybolan entity         : 90 / 252
+  Adim basina yazilacak kayit           : min 174 | p50 223 | p95 272 | max 294 kayit
+
+8) YAZMA HACMI TAHMINI (sadece bu orneklem icin)
+  Kaynak zamani kapsami                 : 900 sn | adim: 150 | yazilacak toplam: 34.032
+  Tahmini yazma                         : 37,8 kayit/sn ~ 136.128 kayit/saat ~ 408.384 kayit/3 saat
+  Naif (her poll'da hepsi)              : ~4.276.432 kayit/saat
+
+NOT: Bu degerler tek bir kosunun orneklemidir; gun ici/hafta ici degisimi
+temsil etmez. Kesin hacim/politika karari icin farkli saatlerde tekrarlayin.
+==================================================

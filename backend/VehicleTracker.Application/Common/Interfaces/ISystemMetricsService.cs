@@ -8,5 +8,6 @@ public interface ISystemMetricsService
     void RecordFailedPoll();
     void IncrementConnectedClients();
     void DecrementConnectedClients();
+    void RecordRecordsWritten(int count);
     SystemStatusDto GetStatus();
 }

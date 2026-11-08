@@ -17,6 +17,7 @@ public sealed class DbWriteQueue
                 SingleWriter = false
             });
     }
+    public void Complete() => _channel.Writer.TryComplete();
 
     public ValueTask EnqueueAsync(IReadOnlyList<VehiclePositionRecord> batch, CancellationToken ct = default) =>
         _channel.Writer.WriteAsync(batch, ct);

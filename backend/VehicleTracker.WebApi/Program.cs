@@ -44,7 +44,6 @@ builder.Services.AddSignalR(options =>
 });
 builder.Services.AddSingleton<VehicleTracker.WebApi.Services.SignalRVehiclePublisher>();
 builder.Services.AddSingleton<IVehiclePublisher>(sp => sp.GetRequiredService<VehicleTracker.WebApi.Services.SignalRVehiclePublisher>());
-builder.Services.AddHostedService(sp => sp.GetRequiredService<VehicleTracker.WebApi.Services.SignalRVehiclePublisher>());
 var app = builder.Build();
 
 app.UseCors();

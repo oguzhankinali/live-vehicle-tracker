@@ -85,11 +85,11 @@ public static class DependencyInjection
 
 
         // Arka plan işçileri (Ingestion ve Retention)
+        services.AddHostedService<DbWriterWorker>();
         services.AddHostedService<VehicleIngestionWorker>();
         services.AddHostedService<VehicleRetentionWorker>();
         // DB Kuyruğu ve Bağımsız Yazıcı Worker
         services.AddSingleton<DbWriteQueue>();
-        services.AddHostedService<DbWriterWorker>();
 
         return services;
     }

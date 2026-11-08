@@ -9,15 +9,18 @@ namespace VehicleTracker.Infrastructure.Retention;
 public sealed class VehicleRetentionWorker : BackgroundService
 {
     private readonly IVehicleRetentionService _retentionService;
+    private readonly IVehicleLiveStateStore _liveStore;
     private readonly IngestionOptions _options;
     private readonly ILogger<VehicleRetentionWorker> _logger;
 
     public VehicleRetentionWorker(
         IVehicleRetentionService retentionService,
+        IVehicleLiveStateStore liveStore,
         IOptions<IngestionOptions> options,
         ILogger<VehicleRetentionWorker> logger)
     {
         _retentionService = retentionService;
+        _liveStore = liveStore;
         _options = options.Value;
         _logger = logger;
     }
@@ -48,7 +51,12 @@ public sealed class VehicleRetentionWorker : BackgroundService
     {
         try
         {
-            // Belirlenen saklama penceresinden eski TimescaleDB chunk'larını temizle
+            var thresholdUtc = DateTime.UtcNow - _options.Retention;
+
+            // 1. RAM'deki eski araçları temizle
+            _liveStore.PruneStaleVehicles(thresholdUtc);
+
+            // 2. Veritabanındaki eski chunk'ları temizle
             var droppedCount = await _retentionService.DropStaleChunksAsync(_options.Retention, cancellationToken);
 
             if (droppedCount > 0)

@@ -105,5 +105,5 @@ public class SnapshotChangeDetectorTests
 
         Assert.Equal(SnapshotDisposition.DuplicatePayload, result2.Disposition);
         Assert.Empty(result2.Accepted);
-    }
+    }   
 }
