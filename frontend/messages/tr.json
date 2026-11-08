@@ -1,5 +1,11 @@
 {
   "Index": {
     "title": "Canlı Araç Takibi"
+  },
+  "Connection": {
+    "Connected": "Canlı Yayın Aktif",
+    "Connecting": "Bağlanıyor...",
+    "Reconnecting": "Yeniden Bağlanıyor...",
+    "Disconnected": "Bağlantı Koptu"
   }
 }

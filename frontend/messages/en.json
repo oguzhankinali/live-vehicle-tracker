@@ -1,5 +1,11 @@
 {
   "Index": {
     "title": "Live Vehicle Tracker"
+  },
+  "Connection": {
+    "Connected": "Live Feed Active",
+    "Connecting": "Connecting...",
+    "Reconnecting": "Reconnecting...",
+    "Disconnected": "Disconnected"
   }
 }
