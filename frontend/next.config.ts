@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from 'next-intl/plugin';
+
+// next-intl eklentisini i18n ayar dosyamızla başlatıyoruz
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 const nextConfig: NextConfig = {
-  /* config options here */
   experimental: {
     agentFeedback: true,
   },
@@ -17,4 +20,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Config'i next-intl ile sarmalayarak dışarı aktarıyoruz
+export default withNextIntl(nextConfig);
