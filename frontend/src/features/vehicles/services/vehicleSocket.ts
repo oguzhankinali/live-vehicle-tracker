@@ -11,71 +11,85 @@ import { VehiclePositionRecord } from "../types/vehicle";
 
 class VehicleSocketService {
   private connection: HubConnection | null = null;
-  private isConnecting = false;
+  private queue: Promise<void> = Promise.resolve();
+  private stopped = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
 
-  public async connect(): Promise<void> {
-    if (this.connection && this.connection.state === HubConnectionState.Connected) {
+  public connect(): Promise<void> {
+    this.queue = this.queue.then(() => this.doConnect()).catch(() => {});
+    return this.queue;
+  }
+
+  public disconnect(): Promise<void> {
+    this.queue = this.queue.then(() => this.doDisconnect()).catch(() => {});
+    return this.queue;
+  }
+
+  private async doConnect(): Promise<void> {
+    this.stopped = false;
+
+    // Bağlantı zaten varsa ve Disconnected değilse (örn. Reconnecting) ikinci bağlantı açma
+    if (this.connection && this.connection.state !== HubConnectionState.Disconnected) {
       return;
     }
-    if (this.isConnecting) return;
 
-    this.isConnecting = true;
     useVehicleStore.getState().setConnectionStatus("Connecting");
-
-    // İlk açılışta REST API'den güncel durumu çek
     this.fetchLatestSnapshot();
 
-    this.connection = new HubConnectionBuilder()
-      .withUrl(ENV.WS_URL, {
-        skipNegotiation: true,
-        transport: HttpTransportType.WebSockets,
-      })
-      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-      .configureLogging(LogLevel.Warning)
-      .build();
+    if (!this.connection) {
+      this.connection = new HubConnectionBuilder()
+        .withUrl(ENV.WS_URL, {
+          skipNegotiation: true,
+          transport: HttpTransportType.WebSockets,
+        })
+        .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+        .configureLogging(LogLevel.Warning)
+        .build();
 
-    this.connection.onreconnecting(() => {
-      useVehicleStore.getState().setConnectionStatus("Reconnecting");
-    });
+      this.connection.onreconnecting(() => {
+        useVehicleStore.getState().setConnectionStatus("Reconnecting");
+      });
 
-    // Şartname 3.2: Yeniden bağlanıldığında kayıp verileri kurtarmak için REST ile tazele
-    this.connection.onreconnected(() => {
-      useVehicleStore.getState().setConnectionStatus("Connected");
-      this.fetchLatestSnapshot();
-    });
+      this.connection.onreconnected(() => {
+        useVehicleStore.getState().setConnectionStatus("Connected");
+        this.fetchLatestSnapshot();
+      });
 
-    this.connection.onclose(() => {
-      useVehicleStore.getState().setConnectionStatus("Disconnected");
-      this.scheduleReconnect();
-    });
+      this.connection.onclose(() => {
+        useVehicleStore.getState().setConnectionStatus("Disconnected");
+        this.scheduleReconnect();
+      });
 
-    // Sunucudan gelen ilk tam liste (Ezmek yerine akıllıca birleştiriyoruz)
-    this.connection.on("ReceiveSnapshot", (snapshot: VehiclePositionRecord[]) => {
-      if (Array.isArray(snapshot)) {
-        useVehicleStore.getState().batchUpdateVehicles(snapshot);
-      }
-    });
+      this.connection.on("ReceiveSnapshot", (snapshot: VehiclePositionRecord[]) => {
+        if (Array.isArray(snapshot)) {
+          useVehicleStore.getState().batchUpdateVehicles(snapshot);
+        }
+      });
 
-    // Sunucudan 3 saniyede bir gelen değişen araçlar
-    this.connection.on("ReceiveUpdates", (updates: VehiclePositionRecord[]) => {
-      if (Array.isArray(updates)) {
-        useVehicleStore.getState().batchUpdateVehicles(updates);
-      }
-    });
+      this.connection.on("ReceiveUpdates", (updates: VehiclePositionRecord[]) => {
+        if (Array.isArray(updates)) {
+          useVehicleStore.getState().batchUpdateVehicles(updates);
+        }
+      });
+    }
 
     try {
       await this.connection.start();
-      useVehicleStore.getState().setConnectionStatus("Connected");
+      if (this.stopped) {
+        // start() tamamlanana kadar unmount/disconnect çağrıldıysa hemen durdur
+        await this.connection.stop();
+        useVehicleStore.getState().setConnectionStatus("Disconnected");
+      } else {
+        useVehicleStore.getState().setConnectionStatus("Connected");
+      }
     } catch {
       useVehicleStore.getState().setConnectionStatus("Disconnected");
       this.scheduleReconnect();
-    } finally {
-      this.isConnecting = false;
     }
   }
 
-  public async disconnect(): Promise<void> {
+  private async doDisconnect(): Promise<void> {
+    this.stopped = true;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -86,17 +100,18 @@ class VehicleSocketService {
         await this.connection.stop();
       } finally {
         this.connection = null;
-        this.isConnecting = false;
         useVehicleStore.getState().setConnectionStatus("Disconnected");
       }
     }
   }
 
   private scheduleReconnect(): void {
-    if (this.reconnectTimer) return;
+    if (this.stopped || this.reconnectTimer) return;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      this.connect();
+      if (!this.stopped) {
+        this.connect();
+      }
     }, 5000);
   }
 
@@ -108,7 +123,7 @@ class VehicleSocketService {
         useVehicleStore.getState().batchUpdateVehicles(data);
       }
     } catch {
-      // Ağ hatasında WebSocket yayını denemeye devam eder
+      // Hata durumunda WebSocket akışı yeniden bağlanmayı dener
     }
   }
 }

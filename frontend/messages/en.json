@@ -65,5 +65,26 @@
     "close": "Close",
     "startPoint": "Start Point",
     "endPoint": "Current / End Point"
+  },
+  "SystemStatus": {
+    "title": "System Status & Metrics",
+    "button": "System Status",
+    "lastPoll": "Last Successful Ingestion",
+    "recordsLastHour": "Records Written Last Hour",
+    "totalRecords": "Total Records Written",
+    "failedAttempts": "Failed Poll Attempts",
+    "connectedClients": "Connected WebSocket Clients",
+    "uptime": "System Uptime",
+    "healthy": "System Healthy",
+    "delayed": "Ingestion Delayed (>15s)",
+    "loading": "Loading system metrics...",
+    "error": "Failed to fetch system metrics.",
+    "empty": "No system metrics recorded yet.",
+    "retry": "Retry",
+    "close": "Close",
+    "secondsAgo": "{sec}s ago",
+    "justNow": "Just now",
+    "uptimeFormat": "{h}h {m}m {s}s",
+    "healthStatus": "Health Status"
   }
 }

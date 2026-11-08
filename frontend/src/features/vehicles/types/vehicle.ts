@@ -18,7 +18,6 @@ export enum OccupancyStatus {
   NotBoardable = 8,
 }
 
-// Backend VehiclePositionRecord modelinin Zod şeması
 export const vehiclePositionRecordSchema = z.object({
   feedEntityId: z.string(),
   vehicleId: z.string(),
@@ -38,7 +37,6 @@ export const vehiclePositionRecordSchema = z.object({
   receivedAtUtc: z.string(),
 });
 
-// TypeScript tipini doğrudan Zod şemasından türetiyoruz (çift tanım hatasını önler)
 export type VehiclePositionRecord = z.infer<typeof vehiclePositionRecordSchema>;
 
 export interface PagedResult<T> {
@@ -49,13 +47,4 @@ export interface PagedResult<T> {
   totalPages: number;
   hasNextPage: boolean;
   hasPreviousPage: boolean;
-}
-
-export interface SystemStatusDto {
-  lastSuccessfulPollUtc: string | null;
-  recordsWrittenLastHour: number;
-  totalRecordsWritten: number;
-  failedPollAttempts: number;
-  connectedClientCount: number;
-  uptimeSeconds: number;
 }

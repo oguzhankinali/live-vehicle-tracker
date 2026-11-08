@@ -65,5 +65,26 @@
     "close": "Kapat",
     "startPoint": "Başlangıç",
     "endPoint": "Son Konum"
+  },
+  "SystemStatus": {
+    "title": "Sistem Durumu ve Metrikler",
+    "button": "Sistem Durumu",
+    "lastPoll": "Son Başarılı Okuma",
+    "recordsLastHour": "Son 1 Saatte Yazılan Kayıt",
+    "totalRecords": "Toplam Yazılan Kayıt",
+    "failedAttempts": "Başarısız Deneme",
+    "connectedClients": "Bağlı WebSocket İstemcisi",
+    "uptime": "Sistem Çalışma Süresi",
+    "healthy": "Sistem Sağlıklı",
+    "delayed": "Okuma Gecikmeli (>15 sn)",
+    "loading": "Metrikler yükleniyor...",
+    "error": "Sistem metrikleri alınamadı.",
+    "empty": "Henüz sistem metriği kaydedilmedi.",
+    "retry": "Tekrar Dene",
+    "close": "Kapat",
+    "secondsAgo": "{sec} sn önce",
+    "justNow": "Az önce",
+    "uptimeFormat": "{h} sa {m} dk {s} sn",
+    "healthStatus": "Sağlık Durumu"
   }
 }
