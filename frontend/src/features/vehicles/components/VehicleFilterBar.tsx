@@ -9,18 +9,21 @@ export function VehicleFilterBar() {
   const t = useTranslations('Filter');
   const searchParams = useSearchParams();
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const isInitialized = useRef(false);
 
   const { searchQuery, routeQuery, setSearchQuery, setRouteQuery } = useVehicleStore();
 
-  // İlk yüklemede URL parametrelerini store'a aktar
+  // Kendime not: URL'i YALNIZCA açılışta oku. Kullanıcı yazarken store ezilmesin.
   useEffect(() => {
-    const urlSearch = searchParams.get('search') || '';
-    const urlRoute = searchParams.get('routeId') || '';
-    setSearchQuery(urlSearch);
-    setRouteQuery(urlRoute);
+    if (!isInitialized.current) {
+      const urlSearch = searchParams.get('search') || '';
+      const urlRoute = searchParams.get('routeId') || '';
+      if (urlSearch) setSearchQuery(urlSearch);
+      if (urlRoute) setRouteQuery(urlRoute);
+      isInitialized.current = true;
+    }
   }, [searchParams, setSearchQuery, setRouteQuery]);
 
-  // güncelleme not: Her harfte sunucuya RSC isteği atmamak için 250ms debounce ile window.history.replaceState kullanıyoruz. URL güncellenir ama sunucu turu (roundtrip) atılmaz.
   const syncUrlWithDebounce = (search: string, route: string) => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
 

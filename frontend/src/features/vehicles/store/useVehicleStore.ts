@@ -11,7 +11,7 @@ interface VehicleStore {
   searchQuery: string;
   routeQuery: string;
   
-  connect: () => Promise<void>;
+  connect: () => void;
   disconnect: () => Promise<void>;
   setSelectedVehicleId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
@@ -20,22 +20,20 @@ interface VehicleStore {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5086';
 
-// güncelleme not: Şartname gereği backend dakikalarca kapalı kalsa bile pes etmeyen sonsuz geri çekilmeli (0, 2, 5, 10, max 30 sn) özel yeniden bağlanma politikası.
 class InfiniteRetryPolicy implements IRetryPolicy {
   nextRetryDelayInMilliseconds(retryContext: { previousRetryCount: number }): number | null {
     const delays = [0, 2000, 5000, 10000];
     if (retryContext.previousRetryCount < delays.length) {
       return delays[retryContext.previousRetryCount];
     }
-    return 30000; // 30 saniyede bir sonsuza kadar dene
+    return 30000;
   }
 }
 
-// React Strict Mode çift mount tuzağını engellemek için singleton lock
 let activeConnection: HubConnection | null = null;
-let connectionPromise: Promise<void> | null = null;
+let startPromise: Promise<void> | null = null;
+let isIntentionalDisconnect = false;
 
-// Gelen araçları mevcut listeye timestamp kontrolüyle birleştiren saf fonksiyon
 function mergeVehicles(
   current: Record<string, VehiclePositionRecord>,
   incomingList: VehiclePositionRecord[]
@@ -50,7 +48,6 @@ function mergeVehicles(
     const incomingTime = new Date(incoming.timestamp).getTime();
     const existingTime = existing ? new Date(existing.timestamp).getTime() : 0;
 
-    // Kendime not: Snapshot veya Delta fark etmez; sadece daha yeni veya eşit veriyi kabul et.
     if (!existing || incomingTime >= existingTime) {
       updated[incoming.vehicleId] = incoming;
     }
@@ -70,26 +67,28 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setRouteQuery: (routeQuery) => set({ routeQuery }),
 
-  connect: async () => {
-    // Çift bağlantıyı engelle: Zaten bağlanmışsa veya şu an bağlanma vaadi sürüyorsa çık
-    if (activeConnection?.state === HubConnectionState.Connected) return;
-    if (connectionPromise) return connectionPromise;
+  connect: () => {
+    // 1. Zaten bağlıysa veya bağlanma işlemi devam ediyorsa ikinci kez başlatma
+    if (activeConnection && activeConnection.state !== HubConnectionState.Disconnected) {
+      return;
+    }
+    if (startPromise) {
+      return;
+    }
 
+    isIntentionalDisconnect = false;
     set({ connectionStatus: 'Connecting' });
 
-    // REST'ten hızlı ilk yükleme (0 ms RAM)
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/vehicles/latest`);
-      if (res.ok) {
-        const initialData: VehiclePositionRecord[] = await res.json();
-        set((state) => ({
-          vehicles: mergeVehicles(state.vehicles, initialData)
-        }));
-        console.log(`[REST] ${initialData.length} araç RAM'den yüklendi.`);
-      }
-    } catch (err) {
-      console.warn('[REST] İlk veri alınamadı, SignalR bekleniyor:', err);
-    }
+    // REST başlangıç verisini paralel çek
+    fetch(`${API_BASE_URL}/api/vehicles/latest`)
+      .then(async (res) => {
+        if (res.ok) {
+          const data: VehiclePositionRecord[] = await res.json();
+          set((state) => ({ vehicles: mergeVehicles(state.vehicles, data) }));
+          console.log(`[REST] ${data.length} araç RAM'den yüklendi.`);
+        }
+      })
+      .catch((err) => console.warn('[REST] İlk veri alınamadı:', err));
 
     const connection = new HubConnectionBuilder()
       .withUrl(`${API_BASE_URL}/hubs/vehicles`, {
@@ -97,7 +96,7 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
         transport: HttpTransportType.WebSockets
       })
       .withAutomaticReconnect(new InfiniteRetryPolicy())
-      .configureLogging(LogLevel.Warning) // Konsolu gereksiz loglardan temizle
+      .configureLogging(LogLevel.Warning)
       .build();
 
     activeConnection = connection;
@@ -107,51 +106,65 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
     connection.onclose(() => {
       set({ connectionStatus: 'Disconnected' });
       activeConnection = null;
+      startPromise = null;
     });
 
     connection.on('ReceiveSnapshot', (snapshot: VehiclePositionRecord[]) => {
       if (!Array.isArray(snapshot)) return;
       console.log(`[SignalR] Snapshot alındı: ${snapshot.length} araç.`);
-      set((state) => ({
-        vehicles: mergeVehicles(state.vehicles, snapshot)
-      }));
+      set((state) => ({ vehicles: mergeVehicles(state.vehicles, snapshot) }));
     });
 
     connection.on('ReceiveUpdates', (updates: VehiclePositionRecord[]) => {
       if (!Array.isArray(updates)) return;
-      set((state) => ({
-        vehicles: mergeVehicles(state.vehicles, updates)
-      }));
+      set((state) => ({ vehicles: mergeVehicles(state.vehicles, updates) }));
     });
 
-    connectionPromise = connection.start()
+    // Kendime not: start() işlemini Promise olarak saklıyoruz. React Strict Mode hemen stop()
+    // çağırırsa el sıkışma bitmeden stop() yapılmasını engellemek için bu vaat beklenir.
+    startPromise = connection.start()
       .then(() => {
         set({ connectionStatus: 'Connected' });
         console.log('[SignalR] Tekil WebSocket bağlantısı sağlandı.');
       })
       .catch((err) => {
-        console.error('[SignalR] İlk bağlantı başarısız, tekrar denenecek:', err);
-        set({ connectionStatus: 'Disconnected' });
+        // Strict Mode unmount'u veya kasıtlı kapatma iptallerini hata sayıp konsolu kirletme
+        if (err.name === 'AbortError' || isIntentionalDisconnect) {
+          return;
+        }
+        console.error('[SignalR] Bağlantı hatası, tekrar denenecek:', err);
         activeConnection = null;
-        // İlk bağlantı çökerse 5 saniye sonra otomatik tekrar dene
-        setTimeout(() => {
-          connectionPromise = null;
-          get().connect();
-        }, 5000);
+        set({ connectionStatus: 'Disconnected' });
+
+        if (!isIntentionalDisconnect) {
+          setTimeout(() => get().connect(), 5000);
+        }
       })
       .finally(() => {
-        connectionPromise = null;
+        startPromise = null;
       });
-
-    return connectionPromise;
   },
 
   disconnect: async () => {
+    isIntentionalDisconnect = true;
+
+    // Eğer henüz start() işlemi devam ediyorsa, bitmesini bekle ki 'stop before start' hatası vermesin
+    if (startPromise) {
+      try {
+        await startPromise;
+      } catch {
+        // İptal hatalarını yut
+      }
+    }
+
     if (activeConnection) {
       const conn = activeConnection;
       activeConnection = null;
-      connectionPromise = null;
-      await conn.stop();
+      try {
+        await conn.stop();
+      } catch {
+        // Kapanış hatalarını yut
+      }
       set({ connectionStatus: 'Disconnected' });
     }
   }
