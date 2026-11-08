@@ -6,4 +6,4 @@ public sealed record SystemStatusDto(
     long TotalRecordsWritten,
     int FailedPollAttempts,
     int ConnectedClientCount,
-    TimeSpan Uptime);
+    double UptimeSeconds); 

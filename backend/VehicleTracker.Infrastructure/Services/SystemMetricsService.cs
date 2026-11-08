@@ -15,16 +15,20 @@ public sealed class SystemMetricsService : ISystemMetricsService
     // Son 1 saati dakikalık dilimler (bucket) halinde tutan thread-safe sayaç
     private readonly ConcurrentDictionary<long, long> _hourlyMinuteBuckets = new();
 
-    public void RecordSuccessfulPoll(int writtenCount)
+    public void RecordSuccessfulPoll(int _)
     {
         _lastSuccessfulPollUtc = DateTime.UtcNow;
-        Interlocked.Add(ref _totalRecordsWritten, writtenCount);
+    }
 
-        // Şimdiki dakikanın Unix dakika damgasını al
+    public void RecordRecordsWritten(int count)
+    {
+        if (count <= 0) return;
+
+        Interlocked.Add(ref _totalRecordsWritten, count);
+
         var currentMinute = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60;
-        _hourlyMinuteBuckets.AddOrUpdate(currentMinute, writtenCount, (_, existing) => existing + writtenCount);
+        _hourlyMinuteBuckets.AddOrUpdate(currentMinute, count, (_, existing) => existing + count);
 
-        // 60 dakikadan eski dilimleri temizle
         PruneOldBuckets(currentMinute);
     }
 
@@ -56,7 +60,7 @@ public sealed class SystemMetricsService : ISystemMetricsService
             TotalRecordsWritten: Interlocked.Read(ref _totalRecordsWritten),
             FailedPollAttempts: _failedPollAttempts,
             ConnectedClientCount: Math.Max(0, _connectedClientCount),
-            Uptime: DateTime.UtcNow - _startTimeUtc);
+            UptimeSeconds: (DateTime.UtcNow - _startTimeUtc).TotalSeconds); // TotalSeconds olarak dönüyoruz
     }
 
     private void PruneOldBuckets(long currentMinute)
