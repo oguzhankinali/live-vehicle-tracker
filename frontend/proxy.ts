@@ -4,6 +4,6 @@ import { routing } from './src/i18n/routing';
 export default createMiddleware(routing);
 
 export const config = {
-  // Gereksiz statik dosyaları atlayıp sadece kök ve dil rotalarını yakalasın
-  matcher: ['/', '/(tr|en)/:path*']
+  // Statik dosyaları ve api yollarını hariç tutup tüm rotaları yakala
+  matcher: ['/((?!api|_next|_vercel|.*\\..*).*)']
 };

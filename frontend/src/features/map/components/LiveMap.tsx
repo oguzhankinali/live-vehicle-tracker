@@ -7,8 +7,6 @@ import { setWorkerUrl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useVehicleStore } from '../../vehicles/store/useVehicleStore';
 
-// Kendime not: MapLibre v6'da worker ayarı doğrudan named export fonksiyonu ile yapılır.
-// Az önce public/ içine kopyaladığımız öz be öz v6 worker'ımızı veriyoruz.
 if (typeof window !== 'undefined') {
   setWorkerUrl('/maplibre-gl-worker.mjs');
 }
@@ -34,29 +32,41 @@ const osmStyle = {
   ]
 };
 
-function toGeoJson(vehiclesRecord: Record<string, any>) {
+// Kendime not: Filtreleme parametrelerini doğrudan GeoJSON dönüşümünde uyguluyoruz (0 ms)
+function toGeoJson(vehiclesRecord: Record<string, any>, search: string, route: string) {
   const raw = Object.values(vehiclesRecord);
   const features: any[] = [];
+
+  const sQuery = search.trim().toLowerCase();
+  const rQuery = route.trim().toLowerCase();
 
   for (let i = 0; i < raw.length; i++) {
     const v = raw[i];
     const lon = Number(v.longitude ?? v.Longitude);
     const lat = Number(v.latitude ?? v.Latitude);
+    const vId = String(v.vehicleId ?? v.VehicleId ?? '');
+    const rId = String(v.routeId ?? v.RouteId ?? '');
 
-    if (!isNaN(lon) && lon >= -180 && lon <= 180 && !isNaN(lat) && lat >= -90 && lat <= 90) {
-      features.push({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [lon, lat]
-        },
-        properties: {
-          id: String(v.vehicleId ?? v.VehicleId ?? ''),
-          routeId: String(v.routeId ?? v.RouteId ?? ''),
-          speed: Number(v.speed ?? v.Speed ?? 0),
-          heading: Number(v.bearing ?? v.Bearing ?? 0)
-        }
-      });
+    // Filtreleme Kontrolü
+    const matchesSearch = !sQuery || vId.toLowerCase().includes(sQuery);
+    const matchesRoute = !rQuery || rId.toLowerCase().includes(rQuery);
+
+    if (matchesSearch && matchesRoute) {
+      if (!isNaN(lon) && lon >= -180 && lon <= 180 && !isNaN(lat) && lat >= -90 && lat <= 90) {
+        features.push({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [lon, lat]
+          },
+          properties: {
+            id: vId,
+            routeId: rId,
+            speed: Number(v.speed ?? v.Speed ?? 0),
+            heading: Number(v.bearing ?? v.Bearing ?? 0)
+          }
+        });
+      }
     }
   }
 
@@ -67,7 +77,7 @@ function toGeoJson(vehiclesRecord: Record<string, any>) {
 }
 
 export function LiveMap() {
-  const { connect, disconnect, vehicles } = useVehicleStore();
+  const { connect, disconnect, vehicles, searchQuery, routeQuery } = useVehicleStore();
   const mapRef = useRef<maplibregl.Map | null>(null);
 
   useEffect(() => {
@@ -77,28 +87,27 @@ export function LiveMap() {
     };
   }, [connect, disconnect]);
 
-  // Canlı SignalR güncellemeleri geldikçe GPU'ya aktar
+  // Canlı SignalR verisi veya filtre değiştiğinde doğrudan GPU'ya bas
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
     const source = map.getSource('vehicles-source') as maplibregl.GeoJSONSource;
     if (source) {
-      source.setData(toGeoJson(vehicles) as any);
+      source.setData(toGeoJson(vehicles, searchQuery, routeQuery) as any);
     }
-  }, [vehicles]);
+  }, [vehicles, searchQuery, routeQuery]);
 
   const handleMapLoad = (e: any) => {
     const map = e.target as maplibregl.Map;
     mapRef.current = map;
-    console.log('[Map] Harita motoru yüklendi, 928 araç GPU katmanına basılıyor...');
 
     if (!map.getSource('vehicles-source')) {
       const currentVehicles = useVehicleStore.getState().vehicles;
 
       map.addSource('vehicles-source', {
         type: 'geojson',
-        data: toGeoJson(currentVehicles) as any
+        data: toGeoJson(currentVehicles, searchQuery, routeQuery) as any
       });
 
       map.addLayer({
@@ -107,7 +116,7 @@ export function LiveMap() {
         source: 'vehicles-source',
         paint: {
           'circle-radius': 6,
-          'circle-color': '#2563eb', // Canlı Mavi
+          'circle-color': '#2563eb',
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff'
         }

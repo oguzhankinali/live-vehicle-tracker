@@ -7,5 +7,11 @@
     "Connecting": "Connecting...",
     "Reconnecting": "Reconnecting...",
     "Disconnected": "Disconnected"
+  },
+  "Filter": {
+    "searchPlaceholder": "Search vehicle (e.g. 257253)...",
+    "routePlaceholder": "Search route (e.g. Line:2)...",
+    "clear": "Clear",
+    "stats": "{filtered} / {total} vehicles"
   }
 }

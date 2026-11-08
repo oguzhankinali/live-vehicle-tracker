@@ -1,15 +1,10 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from 'next-intl/plugin';
 
-// next-intl eklentisini i18n ayar dosyamızla başlatıyoruz
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 const nextConfig: NextConfig = {
-  experimental: {
-    agentFeedback: true,
-  },
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Kendime not: Tailwind v4 kurallarının (@theme, @custom-variant) Turbopack tarafından derlenebilmesi için bu kural zorunludur. Silinirse CSS motoru çöker.
   turbopack: {
     rules: {
       "*.css": {
@@ -20,5 +15,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Config'i next-intl ile sarmalayarak dışarı aktarıyoruz
 export default withNextIntl(nextConfig);

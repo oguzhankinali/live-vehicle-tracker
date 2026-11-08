@@ -7,5 +7,11 @@
     "Connecting": "Bağlanıyor...",
     "Reconnecting": "Yeniden Bağlanıyor...",
     "Disconnected": "Bağlantı Koptu"
+  },
+  "Filter": {
+    "searchPlaceholder": "Araç no ara (örn: 257253)...",
+    "routePlaceholder": "Hat ara (örn: Line:2)...",
+    "clear": "Temizle",
+    "stats": "{filtered} / {total} araç"
   }
 }
