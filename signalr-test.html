@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>SignalR Canlı Test</title>
+    <!-- Microsoft'un resmi SignalR JavaScript istemcisi -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+</head>
+
+<body style="font-family: Arial; background: #1e1e1e; color: #fff; padding: 20px;">
+    <h2>🚀 SignalR Canlı Veri Testi</h2>
+    <p>Klavyeden <b>F12</b>'ye basıp <b>Console</b> sekmesini açın!</p>
+    <div id="status" style="color: yellow;">Bağlanılıyor...</div>
+
+    <script>
+        const statusDiv = document.getElementById("status");
+
+        // Hub'a bağlanıyoruz
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("http://localhost:5086/hubs/vehicles")
+            .withAutomaticReconnect()
+            .build();
+
+        // 1. ŞART: İlk bağlandığında tüm snapshot gelsin
+        connection.on("ReceiveSnapshot", (data) => {
+            console.log("🔥 SNAPSHOT GELDİ! RAM'deki Toplam Araç:", data.length);
+            if (data.length > 0) console.log("Örnek Araç (Snapshot):", data[0]);
+        });
+
+        // 2. ŞART: Her 3 saniyede bir sadece güncellemeler (deltalar) gelsin
+        connection.on("ReceiveUpdates", (data) => {
+            console.log("⚡ GÜNCELLEME GELDİ! Değişen Araç Sayısı:", data.length);
+        });
+
+        connection.start()
+            .then(() => {
+                statusDiv.innerHTML = "✅ SignalR Bağlantısı Başarılı! Veriler akıyor...";
+                statusDiv.style.color = "lime";
+            })
+            .catch(err => {
+                statusDiv.innerHTML = "❌ Bağlantı Hatası!";
+                statusDiv.style.color = "red";
+                console.error(err);
+            });
+    </script>
+</body>
+
+</html>
