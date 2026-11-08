@@ -43,5 +43,27 @@
     "occNotBoardable": "Not Boardable",
     "close": "Close",
     "historyButton": "Position History & Trail"
+  },
+  "History": {
+    "title": "Position History & Trail",
+    "timeRange": "Time Range",
+    "last30m": "Last 30m",
+    "last1h": "Last 1h",
+    "last3h": "Last 3h",
+    "time": "Timestamp",
+    "speed": "Speed",
+    "coords": "Coordinates",
+    "loading": "Loading position history...",
+    "empty": "No historical records found for this time range.",
+    "error": "Failed to load history data.",
+    "retry": "Retry",
+    "page": "Page {current} of {total}",
+    "prev": "Previous",
+    "next": "Next",
+    "totalRecords": "{count} points recorded",
+    "trailVisible": "Route trail is rendered on the map",
+    "close": "Close",
+    "startPoint": "Start Point",
+    "endPoint": "Current / End Point"
   }
 }

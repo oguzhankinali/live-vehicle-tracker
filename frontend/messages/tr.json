@@ -43,5 +43,27 @@
     "occNotBoardable": "Binişe Kapalı",
     "close": "Kapat",
     "historyButton": "Konum Geçmişi ve Rota"
+  },
+  "History": {
+    "title": "Konum Geçmişi ve Rota",
+    "timeRange": "Zaman Aralığı",
+    "last30m": "Son 30 dk",
+    "last1h": "Son 1 saat",
+    "last3h": "Son 3 saat",
+    "time": "Kayıt Zamanı",
+    "speed": "Hız",
+    "coords": "Koordinat",
+    "loading": "Konum geçmişi yükleniyor...",
+    "empty": "Bu zaman aralığında geçmiş konum kaydı bulunamadı.",
+    "error": "Geçmiş verisi yüklenirken bir hata oluştu.",
+    "retry": "Tekrar Dene",
+    "page": "Sayfa {current} / {total}",
+    "prev": "Önceki",
+    "next": "Sonraki",
+    "totalRecords": "Toplam {count} nokta bulundu",
+    "trailVisible": "Harita üzerinde rota çizgisi gösteriliyor",
+    "close": "Kapat",
+    "startPoint": "Başlangıç",
+    "endPoint": "Son Konum"
   }
 }
