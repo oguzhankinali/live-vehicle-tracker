@@ -24,23 +24,31 @@ export function SystemStatusModal({ isOpen, onClose }: SystemStatusModalProps) {
   const { data, isLoading, isError, refetch } = useSystemStatus(isOpen);
 
   const [secondsAgo, setSecondsAgo] = useState<number | null>(null);
+  const [interpolatedUptime, setInterpolatedUptime] = useState<number>(0);
 
+  // Uptime ve Son Okuma için saniyelik pürüzsüz sayaç
   useEffect(() => {
-    if (!data?.lastSuccessfulPollUtc) {
-      setSecondsAgo(null);
-      return;
-    }
-    const updateDiff = () => {
-      const pollTime = new Date(data.lastSuccessfulPollUtc!).getTime();
-      const diffSec = Math.max(0, Math.floor((Date.now() - pollTime) / 1000));
-      setSecondsAgo(diffSec);
-    };
-    updateDiff();
-    const timer = setInterval(updateDiff, 1000);
-    return () => clearInterval(timer);
-  }, [data?.lastSuccessfulPollUtc]);
+    if (!data) return;
 
-  // Sağlık kriteri: Son okuma 15 saniyeden eskiyse gecikmeli sayılır
+    // Sunucudan gelen veriyi baz al
+    setInterpolatedUptime(data.uptimeSeconds);
+
+    const basePollTime = data.lastSuccessfulPollUtc ? new Date(data.lastSuccessfulPollUtc).getTime() : null;
+
+    const timer = setInterval(() => {
+      // Uptime her saniye akar
+      setInterpolatedUptime((prev) => prev + 1);
+
+      // Son okuma saniyesi güncellenir
+      if (basePollTime) {
+        const diffSec = Math.max(0, Math.floor((Date.now() - basePollTime) / 1000));
+        setSecondsAgo(diffSec);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [data]);
+
   const isDelayed = secondsAgo !== null && secondsAgo > 15;
 
   const formatUptime = (totalSeconds: number) => {
@@ -163,7 +171,7 @@ export function SystemStatusModal({ isOpen, onClose }: SystemStatusModalProps) {
                 <div className="flex items-center gap-1.5">
                   <Clock className="h-3.5 w-3.5 text-amber-400" />
                   <span className="text-xs font-semibold font-mono text-zinc-200">
-                    {formatUptime(data.uptimeSeconds)}
+                    {formatUptime(interpolatedUptime)}
                   </span>
                 </div>
               </div>

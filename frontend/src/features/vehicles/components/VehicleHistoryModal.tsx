@@ -15,6 +15,7 @@ type RangeOption = '30m' | '1h' | '3h';
 
 export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHistoryModalProps) {
   const t = useTranslations('History');
+  const historyTrailPoints = useVehicleStore((state) => state.historyTrailPoints);
   const setHistoryTrailPoints = useVehicleStore((state) => state.setHistoryTrailPoints);
   const clearHistoryTrail = useVehicleStore((state) => state.clearHistoryTrail);
 
@@ -26,37 +27,33 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
     let ms = 60 * 60 * 1000;
     if (selectedRange === '30m') ms = 30 * 60 * 1000;
     if (selectedRange === '3h') ms = 3 * 60 * 60 * 1000;
-
     const fromDate = new Date(now.getTime() - ms);
     return {
       fromIso: fromDate.toISOString(),
-      toIso: now.toISOString()
+      toIso: now.toISOString(),
     };
   }, [selectedRange]);
 
-  // Tablo Listesi İçin Sunucu Taraflı Sayfalama (50 kayıt/sayfa)
   const { data, isLoading, isError, refetch } = useVehicleHistory(
     {
       vehicleId,
       from: fromIso,
       to: toIso,
       page: currentPage,
-      pageSize: 50
+      pageSize: 50,
     },
     isOpen
   );
 
-  // Harita Rotası: Seçilen zaman aralığındaki (30m/1h/3h) TÜM noktaları tek parça çeker
   const { data: trailPoints } = useVehicleTrail(
     {
       vehicleId,
       from: fromIso,
-      to: toIso
+      to: toIso,
     },
     isOpen
   );
 
-  // Haritadaki rotayı güncelle (Sayfa değiştikçe kaybolmaz, zaman aralığı değiştikçe yenilenir)
   useEffect(() => {
     if (trailPoints && trailPoints.length > 0) {
       setHistoryTrailPoints(trailPoints);
@@ -70,39 +67,40 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
 
   if (!isOpen) return null;
 
+  // Canlı nokta sayacı: Araç hareket edip yeni SignalR noktası geldikçe 168 -> 169 diye artar
+  const liveTotalPoints = historyTrailPoints.length > 0 ? historyTrailPoints.length : (trailPoints?.length || 0);
+
   return (
-    <div className="absolute bottom-6 left-6 z-20 w-[520px] max-w-[calc(100vw-3rem)] bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-zinc-200/80 dark:border-zinc-800 p-5 flex flex-col max-h-[380px] animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+    <div className="absolute bottom-6 left-6 z-20 w-[520px] max-w-[calc(100vw-3rem)] bg-zinc-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-zinc-800 p-5 flex flex-col max-h-[380px] animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
         <div>
-          <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+          <h2 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
             <span>{t('title')}</span>
-            <span className="text-[11px] font-mono font-normal px-2 py-0.5 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-md">
+            <span className="text-[11px] font-mono font-normal px-2 py-0.5 bg-blue-950 text-blue-400 rounded-md">
               {vehicleId}
             </span>
           </h2>
-          {/* Başlangıç ve Bitiş Noktası Göstergesi / Lejant */}
           <div className="flex items-center gap-3 mt-1.5 text-[11px]">
-            <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 dark:ring-emerald-900" />
-              {t('startPoint')} (Yeşil)
+            <span className="flex items-center gap-1.5 font-medium text-emerald-400">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-900" />
+              {t('startPoint')}
             </span>
-            <span className="text-zinc-300 dark:text-zinc-600 font-bold">→</span>
-            <span className="flex items-center gap-1.5 font-medium text-rose-600 dark:text-rose-400">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-rose-200 dark:ring-rose-900" />
-              {t('endPoint')} (Kırmızı)
+            <span className="text-zinc-600 font-bold">→</span>
+            <span className="flex items-center gap-1.5 font-medium text-rose-400">
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-rose-900" />
+              {t('endPoint')}
             </span>
-            {trailPoints && trailPoints.length > 0 && (
+            {liveTotalPoints > 0 && (
               <span className="text-zinc-400 font-mono text-[10px] ml-auto">
-                {trailPoints.length} nokta
+                {liveTotalPoints} nokta
               </span>
             )}
           </div>
         </div>
         <button
           onClick={handleClose}
-          className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          aria-label={t('close') || 'Kapat'}
-          title={t('close') || 'Kapat'}
+          className="text-zinc-400 hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-800 transition-colors"
+          aria-label={t('close')}
         >
           ✕
         </button>
@@ -120,7 +118,7 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
             className={`px-2.5 py-1 text-[11px] font-medium rounded-lg transition-colors ${
               selectedRange === range
                 ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
-                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
+                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
             }`}
           >
             {range === '30m' && t('last30m')}
@@ -143,7 +141,7 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
             <span className="text-rose-500 text-xs font-medium">{t('error')}</span>
             <button
               onClick={() => refetch()}
-              className="px-2.5 py-1 text-xs bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100"
+              className="px-2.5 py-1 text-xs bg-rose-950/40 text-rose-400 border border-rose-900 rounded-lg hover:bg-rose-900/40"
             >
               {t('retry')}
             </button>
@@ -158,23 +156,23 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
 
         {!isLoading && !isError && data && data.items.length > 0 && (
           <table className="w-full text-left text-[11px]">
-            <thead className="sticky top-0 bg-zinc-50 dark:bg-zinc-800/90 backdrop-blur border-b border-zinc-200 dark:border-zinc-800 text-zinc-400">
+            <thead className="sticky top-0 bg-zinc-800/90 backdrop-blur border-b border-zinc-800 text-zinc-400">
               <tr>
                 <th className="py-1.5 px-2 font-semibold">{t('time')}</th>
                 <th className="py-1.5 px-2 font-semibold">{t('speed')}</th>
                 <th className="py-1.5 px-2 font-semibold">{t('coords')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+            <tbody className="divide-y divide-zinc-800/50">
               {data.items.map((item, idx) => (
-                <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                  <td className="py-1 px-2 font-mono text-zinc-600 dark:text-zinc-300">
+                <tr key={`${item.feedEntityId}-${item.timestamp}-${idx}`} className="hover:bg-zinc-800/30">
+                  <td className="py-1 px-2 font-mono text-zinc-300">
                     {new Date(item.timestamp).toLocaleTimeString()}
                   </td>
-                  <td className="py-1 px-2 font-semibold text-zinc-800 dark:text-zinc-200">
+                  <td className="py-1 px-2 font-semibold text-zinc-200">
                     {item.speed != null ? `${Math.round(item.speed * 3.6)} km/s` : '-'}
                   </td>
-                  <td className="py-1 px-2 font-mono text-zinc-500 text-[10px]">
+                  <td className="py-1 px-2 font-mono text-zinc-400 text-[10px]">
                     {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}
                   </td>
                 </tr>
@@ -185,7 +183,7 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
       </div>
 
       {!isLoading && data && data.totalPages > 1 && (
-        <div className="flex items-center justify-between pt-3 mt-2 border-t border-zinc-200 dark:border-zinc-800 text-[11px]">
+        <div className="flex items-center justify-between pt-3 mt-2 border-t border-zinc-800 text-[11px]">
           <span className="text-zinc-400 font-mono">
             {t('page', { current: data.page, total: data.totalPages })} ({data.totalCount} kayıt)
           </span>
@@ -193,14 +191,14 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
             <button
               disabled={!data.hasPreviousPage}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-50 font-medium"
+              className="px-2.5 py-1 rounded-lg border border-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-800 font-medium"
             >
               {t('prev')}
             </button>
             <button
               disabled={!data.hasNextPage}
               onClick={() => setCurrentPage((p) => p + 1)}
-              className="px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-50 font-medium"
+              className="px-2.5 py-1 rounded-lg border border-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-800 font-medium"
             >
               {t('next')}
             </button>

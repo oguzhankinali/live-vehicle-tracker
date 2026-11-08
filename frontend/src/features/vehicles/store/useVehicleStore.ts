@@ -10,14 +10,12 @@ interface VehicleState {
   lastMessageReceivedAt: number | null;
   totalVehicleCount: number;
 
-  // Arama ve Filtre Durumları
   searchQuery: string;
   routeQuery: string;
 
   // Haritada çizilen geçmiş rota koordinatları [lon, lat]
   historyTrailPoints: [number, number][];
 
-  // Aksiyonlar
   setConnectionStatus: (status: ConnectionStatus) => void;
   setSnapshot: (snapshot: VehiclePositionRecord[]) => void;
   batchUpdateVehicles: (updates: VehiclePositionRecord[]) => void;
@@ -29,7 +27,6 @@ interface VehicleState {
   evictStaleVehicles: (maxAgeMs?: number) => void;
 }
 
-// Gelen yeni verileri mevcut harita verisiyle akıllıca birleştiren saf yardımcı fonksiyon
 function mergeRecords(
   current: Record<string, VehiclePositionRecord>,
   incoming: VehiclePositionRecord[]
@@ -50,7 +47,6 @@ function mergeRecords(
       continue;
     }
 
-    // Zaman damgası kontrolü: Yalnızca mevcut veriden daha yeni ölçüm geldiyse güncelle
     const incomingTime = new Date(item.timestamp).getTime();
     const existingTime = new Date(existing.timestamp).getTime();
 
@@ -63,7 +59,7 @@ function mergeRecords(
   return hasChanges ? next : current;
 }
 
-export const useVehicleStore = create<VehicleState>((set) => ({
+export const useVehicleStore = create<VehicleState>((set, get) => ({
   vehicles: {},
   connectionStatus: "Disconnected",
   selectedVehicleId: null,
@@ -93,8 +89,24 @@ export const useVehicleStore = create<VehicleState>((set) => ({
   batchUpdateVehicles: (updates) => {
     set((state) => {
       const merged = mergeRecords(state.vehicles, updates);
+
+      // CANLI İZ UZATMA: Eğer seçili bir araç varsa ve bu güncelleme paketinde yer alıyorsa,
+      // rota çizgisinin ucuna bu yeni konumu ekle (sıfır REST maliyeti)
+      let nextTrail = state.historyTrailPoints;
+      if (state.selectedVehicleId && state.historyTrailPoints.length > 0) {
+        const liveMatch = updates.find((u) => u.vehicleId === state.selectedVehicleId);
+        if (liveMatch) {
+          const lastPoint = state.historyTrailPoints[state.historyTrailPoints.length - 1];
+          // Koordinat değiştiyse ekle
+          if (lastPoint[0] !== liveMatch.longitude || lastPoint[1] !== liveMatch.latitude) {
+            nextTrail = [...state.historyTrailPoints, [liveMatch.longitude, liveMatch.latitude]];
+          }
+        }
+      }
+
       return {
         vehicles: merged,
+        historyTrailPoints: nextTrail,
         totalVehicleCount: Object.keys(merged).length,
         lastMessageReceivedAt: Date.now(),
       };
@@ -107,7 +119,6 @@ export const useVehicleStore = create<VehicleState>((set) => ({
   setHistoryTrailPoints: (historyTrailPoints) => set({ historyTrailPoints }),
   clearHistoryTrail: () => set({ historyTrailPoints: [] }),
 
-  // Bellek sızıntısını ve hayalet araçları önlemek için belirlenen süreden eski araçları siler
   evictStaleVehicles: (maxAgeMs = 15 * 60 * 1000) => {
     set((state) => {
       const now = Date.now();

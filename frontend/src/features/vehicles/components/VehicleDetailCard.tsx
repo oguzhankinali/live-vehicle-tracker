@@ -1,14 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
+import { AlertCircle } from 'lucide-react';
 import { useVehicleStore } from '../store/useVehicleStore';
 import { VehicleStopStatus, OccupancyStatus } from '../types/vehicle';
 import { VehicleHistoryModal } from './VehicleHistoryModal';
+import { Badge } from '@/components/ui/badge';
 
 export function VehicleDetailCard() {
   const t = useTranslations('VehicleDetail');
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [now, setNow] = useState<number>(Date.now());
+
   const selectedVehicleId = useVehicleStore((state) => state.selectedVehicleId);
   const setSelectedVehicleId = useVehicleStore((state) => state.setSelectedVehicleId);
   const clearHistoryTrail = useVehicleStore((state) => state.clearHistoryTrail);
@@ -17,7 +21,21 @@ export function VehicleDetailCard() {
     selectedVehicleId ? state.vehicles[selectedVehicleId] : null
   );
 
+  // Canlı saniye sayacı: "x sn önce" her saniye tıkır tıkır akar
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   if (!selectedVehicleId || !vehicle) return null;
+
+  const vehicleTimestamp = new Date(vehicle.timestamp).getTime();
+  const diffMs = Math.max(0, now - vehicleTimestamp);
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+
+  // 15 dakikadan eski veriler için bayatlık uyarısı
+  const isStale = diffMin >= 15;
 
   const speedDisplay =
     vehicle.speed != null ? `${Math.round(vehicle.speed * 3.6)} ${t('unitKmh')}` : '-';
@@ -61,11 +79,8 @@ export function VehicleDetailCard() {
     }
   };
 
-  const getRelativeTime = (timestampIso: string) => {
-    const diffMs = Date.now() - new Date(timestampIso).getTime();
-    const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+  const getRelativeTimeString = () => {
     if (diffSec < 60) return t('secondsAgo', { sec: diffSec });
-    const diffMin = Math.floor(diffSec / 60);
     return t('minutesAgo', { min: diffMin });
   };
 
@@ -74,7 +89,7 @@ export function VehicleDetailCard() {
       <div className="absolute top-20 right-4 z-20 w-80 md:w-96 bg-zinc-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-zinc-800 p-5 transition-all animate-in fade-in slide-in-from-right-4 duration-300">
         <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
+            <div className={`h-3 w-3 rounded-full ${isStale ? 'bg-amber-500' : 'bg-blue-500 animate-pulse'}`} />
             <h2 className="text-sm font-semibold tracking-tight text-zinc-100">
               {t('title')}
             </h2>
@@ -90,6 +105,14 @@ export function VehicleDetailCard() {
             ✕
           </button>
         </div>
+
+        {/* Eski veri / Sinyal Yok Uyarı Rozeti */}
+        {isStale && (
+          <div className="mt-3 flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>Son sinyal {diffMin} dk önce alındı (Araç durağan olabilir)</span>
+          </div>
+        )}
 
         <div className="mt-4 bg-zinc-800/50 rounded-xl p-3 border border-zinc-800 flex items-center justify-between">
           <div>
@@ -150,7 +173,7 @@ export function VehicleDetailCard() {
           <div className="flex items-center justify-between p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
             <span className="text-zinc-400">{t('lastUpdate')}</span>
             <span className="font-mono text-zinc-300">
-              {getRelativeTime(vehicle.timestamp)}
+              {getRelativeTimeString()}
             </span>
           </div>
         </div>

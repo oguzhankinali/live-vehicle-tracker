@@ -98,6 +98,9 @@ export function LiveMap() {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [cursor, setCursor] = useState<string>('auto');
 
+  // Canlı nokta geldikçe kameranın geriye fırlamasını önleyen odak kontrolü
+  const lastFittedVehicleIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -153,16 +156,24 @@ export function LiveMap() {
         ],
       });
 
-      const bounds = new maplibregl.LngLatBounds(historyTrailPoints[0], historyTrailPoints[0]);
-      for (let i = 1; i < historyTrailPoints.length; i++) {
-        bounds.extend(historyTrailPoints[i]);
+      // Kamera odaklanması: SADECE araç ilk seçildiğinde 1 kez çalışır.
+      // Araç hareket edip yeni noktalar eklendikçe kullanıcının zoom'u bozulmaz!
+      if (lastFittedVehicleIdRef.current !== selectedVehicleId) {
+        lastFittedVehicleIdRef.current = selectedVehicleId;
+        const bounds = new maplibregl.LngLatBounds(historyTrailPoints[0], historyTrailPoints[0]);
+        for (let i = 1; i < historyTrailPoints.length; i++) {
+          bounds.extend(historyTrailPoints[i]);
+        }
+        map.fitBounds(bounds, { padding: 120, maxZoom: 14, duration: 1000 });
       }
-      map.fitBounds(bounds, { padding: 120, maxZoom: 14, duration: 1000 });
     } else {
       trailSource.setData({ type: 'FeatureCollection', features: [] });
       pointsSource.setData({ type: 'FeatureCollection', features: [] });
+      if (!selectedVehicleId) {
+        lastFittedVehicleIdRef.current = null;
+      }
     }
-  }, [historyTrailPoints]);
+  }, [historyTrailPoints, selectedVehicleId]);
 
   const handleMapLoad = (e: any) => {
     const map = e.target as maplibregl.Map;
@@ -268,6 +279,7 @@ export function LiveMap() {
       if (features && features.length > 0) {
         const clickedVehicleId = features[0].properties?.id;
         if (clickedVehicleId) {
+          lastFittedVehicleIdRef.current = null;
           setSelectedVehicleId(clickedVehicleId);
         }
       }
