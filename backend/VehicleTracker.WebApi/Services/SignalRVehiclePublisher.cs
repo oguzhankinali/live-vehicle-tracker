@@ -1,25 +1,23 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.Domain.Entities;
 using VehicleTracker.WebApi.Hubs;
 
 namespace VehicleTracker.WebApi.Services;
 
-public sealed class SignalRVehiclePublisher : BackgroundService, IVehiclePublisher
+public sealed class SignalRVehiclePublisher : IVehiclePublisher
 {
+    private const int QueueCapacity = 50;
+
     private readonly IHubContext<VehicleHub> _hubContext;
     private readonly IVehicleLiveStateStore _liveStore;
     private readonly ILogger<SignalRVehiclePublisher> _logger;
-    
-    // Her bağlantı (ConnectionId) için ayrı bir kuyruk tutuyoruz
-    private readonly ConcurrentDictionary<string, Channel<IReadOnlyList<VehiclePositionRecord>>> _clientQueues = new();
+    private readonly ConcurrentDictionary<string, ClientQueue> _clients = new();
 
     public SignalRVehiclePublisher(
-        IHubContext<VehicleHub> hubContext, 
+        IHubContext<VehicleHub> hubContext,
         IVehicleLiveStateStore liveStore,
         ILogger<SignalRVehiclePublisher> logger)
     {
@@ -28,84 +26,79 @@ public sealed class SignalRVehiclePublisher : BackgroundService, IVehiclePublish
         _logger = logger;
     }
 
-    // Yeni istemci bağlandığında onun için bir kuyruk oluştur ve dinlemeye başla
     public void AddClient(string connectionId)
     {
-        var channel = Channel.CreateBounded<IReadOnlyList<VehiclePositionRecord>>(new BoundedChannelOptions(50)
+        var client = new ClientQueue();
+        if (_clients.TryAdd(connectionId, client))
         {
-            FullMode = BoundedChannelFullMode.DropWrite, // Kuyruk dolarsa yeni yazmayı reddet (Aşağıda handle edeceğiz)
-            SingleReader = true,
-            SingleWriter = true
-        });
-
-        if (_clientQueues.TryAdd(connectionId, channel))
-        {
-            // Bu istemci için arka planda tüketici (consumer) başlat
-            _ = ConsumeClientQueueAsync(connectionId, channel);
+            _ = ConsumeAsync(connectionId, client);
         }
     }
 
-    // İstemci koptuğunda kuyruğunu temizle
     public void RemoveClient(string connectionId)
     {
-        if (_clientQueues.TryRemove(connectionId, out var channel))
+        if (_clients.TryRemove(connectionId, out var client))
         {
-            channel.Writer.TryComplete();
+            client.Queue.Writer.TryComplete();
         }
     }
 
-    // ÜRETİCİ: IngestionWorker burayı çağırır. Veriyi tüm istemcilerin kuyruklarına dağıtır.
-    public ValueTask EnqueueUpdatesAsync(IReadOnlyList<VehiclePositionRecord> updates, CancellationToken cancellationToken = default)
+    public ValueTask EnqueueUpdatesAsync(
+        IReadOnlyList<VehiclePositionRecord> updates,
+        CancellationToken cancellationToken = default)
     {
         if (updates.Count == 0) return ValueTask.CompletedTask;
 
-        foreach (var (connectionId, channel) in _clientQueues)
+        foreach (var (_, client) in _clients)
         {
-            if (!channel.Writer.TryWrite(updates))
+            // FullMode = Wait olduğu için kuyruk doluysa TryWrite false döner.
+            if (!client.Queue.Writer.TryWrite(updates))
             {
-                // İstemcinin kuyruğu dolmuş (interneti çok yavaş). 
-                // Ona eski deltaları atmak yerine, kuyruğunu boşaltıp taze snapshot fırlatacağız.
-                _logger.LogWarning("Istemci {ConnectionId} cok yavas! Kuyrugu doldu, Resync (Snapshot) tetikleniyor.", connectionId);
-                
-                // Kuyruğu boşalt
-                while (channel.Reader.TryRead(out _)) { }
-
-                // Taze snapshot'ı kuyruğa at
-                var snapshot = _liveStore.GetAllLatest();
-                channel.Writer.TryWrite(snapshot);
+                // Üretici sadece bayrağı kaldırır, kuyruğa dokunmaz (SingleReader kuralı korunur)
+                Volatile.Write(ref client.NeedsResync, 1);
             }
         }
 
         return ValueTask.CompletedTask;
     }
 
-    // TÜKETİCİ: Her istemci için ayrı çalışan, kuyruktan alıp SignalR'a basan döngü
-    private async Task ConsumeClientQueueAsync(string connectionId, Channel<IReadOnlyList<VehiclePositionRecord>> channel)
+    private async Task ConsumeAsync(string connectionId, ClientQueue client)
     {
         try
         {
-            await foreach (var updates in channel.Reader.ReadAllAsync())
+            await foreach (var updates in client.Queue.Reader.ReadAllAsync())
             {
-                try
+                if (Interlocked.Exchange(ref client.NeedsResync, 0) == 1)
                 {
-                    // Sadece bu spesifik istemciye gönder
-                    await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveUpdates", updates);
+                    // Tüketici kendi kuyruğunu güvenle boşaltır
+                    while (client.Queue.Reader.TryRead(out _)) { }
+
+                    _logger.LogWarning("Istemci {ConnectionId} geride kaldi; taze snapshot (resync) gonderiliyor.", connectionId);
+
+                    await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveSnapshot", _liveStore.GetAllLatest());
+                    continue;
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug("Istemciye {ConnectionId} veri gonderilemedi: {Message}", connectionId, ex.Message);
-                }
+
+                await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveUpdates", updates);
             }
         }
-        catch (ChannelClosedException)
+        catch (Exception exception)
         {
-            // İstemci koptu, döngü biter.
+            _logger.LogDebug("Istemci {ConnectionId} tuketicisi sonlandi: {Message}", connectionId, exception.Message);
         }
     }
 
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    private sealed class ClientQueue
     {
-        // Artık global bir döngümüz yok, her istemcinin kendi döngüsü var.
-        return Task.CompletedTask;
+        public readonly Channel<IReadOnlyList<VehiclePositionRecord>> Queue =
+            Channel.CreateBounded<IReadOnlyList<VehiclePositionRecord>>(
+                new BoundedChannelOptions(QueueCapacity)
+                {
+                    FullMode = BoundedChannelFullMode.Wait,
+                    SingleReader = true,
+                    SingleWriter = false
+                });
+
+        public int NeedsResync;
     }
 }
