@@ -92,5 +92,10 @@
     "uptimeFormat": "{h} sa {m} dk {s} sn",
     "healthStatus": "Sağlık Durumu",
     "description": "Canlı veri akışı ve sunucu operasyon metrikleri"
+  },
+  "Map": {
+    "loading": "Canlı araç konumları yükleniyor...",
+    "filterEmpty": "Arama kriterlerine uygun araç bulunamadı",
+    "connectionError": "Canlı yayın bağlantısı koptu. Yeniden bağlanılıyor..."
   }
 }

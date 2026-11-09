@@ -4,11 +4,12 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import Map, { NavigationControl } from 'react-map-gl/maplibre';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { useTranslations } from 'next-intl';
+import { AlertTriangle, Loader2, SearchX } from 'lucide-react';
 import { useVehicleStore } from '@/features/vehicles/store/useVehicleStore';
 import { useVehicleStream } from '@/features/vehicles/hooks/useVehicleStream';
 import { VehiclePositionRecord } from '@/features/vehicles/types/vehicle';
 import { matchesFilter } from '@/features/vehicles/lib/matchesFilter';
-
 
 const osmStyle = {
   version: 8,
@@ -35,7 +36,7 @@ function toGeoJson(
   vehiclesRecord: Record<string, VehiclePositionRecord>,
   search: string,
   route: string
-): GeoJSON.FeatureCollection {
+): { collection: GeoJSON.FeatureCollection; count: number } {
   const raw = Object.values(vehiclesRecord);
   const features: GeoJSON.Feature[] = [];
 
@@ -44,7 +45,7 @@ function toGeoJson(
     const lon = v.longitude;
     const lat = v.latitude;
 
-    // Filtre çubuğu ile birebir aynı ortak eşleme kuralı
+    // Filtre çubuğu ile %100 senkron çalışan ortak filtre yüklemi
     if (matchesFilter(v, search, route)) {
       if (
         typeof lon === 'number' &&
@@ -74,12 +75,17 @@ function toGeoJson(
   }
 
   return {
-    type: 'FeatureCollection',
-    features,
+    collection: {
+      type: 'FeatureCollection',
+      features,
+    },
+    count: features.length,
   };
 }
+
 export function LiveMap() {
   useVehicleStream();
+  const tMap = useTranslations('Map');
 
   const {
     vehicles,
@@ -89,17 +95,30 @@ export function LiveMap() {
     setSelectedVehicleId,
     historyTrailPoints,
     trailFitVersion,
+    totalVehicleCount,
+    connectionStatus,
   } = useVehicleStore();
 
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [cursor, setCursor] = useState<string>('auto');
+  const [renderedCount, setRenderedCount] = useState<number>(0);
 
+  // Şartname 5 (README Ölçümü): Arayüzde bir güncellemenin işlenme süresi (ms)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const source = map.getSource('vehicles-source') as maplibregl.GeoJSONSource;
     if (source) {
-      source.setData(toGeoJson(vehicles, searchQuery, routeQuery));
+      const t0 = performance.now();
+      const { collection, count } = toGeoJson(vehicles, searchQuery, routeQuery);
+      source.setData(collection);
+      setRenderedCount(count);
+      const durationMs = (performance.now() - t0).toFixed(2);
+
+      // Performans logu: README'deki ölçüm tablosu için konsola basılır
+      if (count > 0 && Math.random() < 0.1) {
+        console.log(`[PERF] MapLibre GeoJSON render süresi: ${durationMs}ms (${count} araç)`);
+      }
     }
   }, [vehicles, searchQuery, routeQuery]);
 
@@ -109,7 +128,6 @@ export function LiveMap() {
     map.setFilter('vehicles-highlight-layer', ['==', 'id', selectedVehicleId || '']);
   }, [selectedVehicleId]);
 
-  // Rota çizgisini ve uç noktaları güncelleme efekti
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -155,8 +173,7 @@ export function LiveMap() {
     }
   }, [historyTrailPoints]);
 
-  // Kamera Odaklanma Efekti: SADECE trailFitVersion değiştiğinde (yeni rota yüklendiğinde) çalışır.
-  // Canlı noktalar geldikçe bu sayaç artmaz, dolayısıyla kullanıcının zoom'u bozulmaz.
+  // Kamera Odaklanma Efekti: Yalnızca REST'ten yeni rota yüklendiğinde (trailFitVersion) çalışır
   useEffect(() => {
     const map = mapRef.current;
     if (!map || trailFitVersion === 0 || historyTrailPoints.length < 2) return;
@@ -166,9 +183,7 @@ export function LiveMap() {
       bounds.extend(historyTrailPoints[i]);
     }
     map.fitBounds(bounds, { padding: 120, maxZoom: 14, duration: 800 });
-    // Bilinçli tercih: historyTrailPoints bilerek bağımlılığa eklenmemiştir;
-    // aksi halde her canlı WebSocket noktasında kamera geriye zıplar.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Bilinçli tercih: kamera canlı noktalarda zıplamasın
   }, [trailFitVersion]);
 
   const handleMapLoad = (e: any) => {
@@ -177,9 +192,10 @@ export function LiveMap() {
 
     if (!map.getSource('vehicles-source')) {
       const currentVehicles = useVehicleStore.getState().vehicles;
+      const { collection } = toGeoJson(currentVehicles, searchQuery, routeQuery);
       map.addSource('vehicles-source', {
         type: 'geojson',
-        data: toGeoJson(currentVehicles, searchQuery, routeQuery),
+        data: collection,
       });
 
       map.addLayer({
@@ -285,8 +301,13 @@ export function LiveMap() {
   const handleMouseEnter = useCallback(() => setCursor('pointer'), []);
   const handleMouseLeave = useCallback(() => setCursor('auto'), []);
 
+  // Şartname 4.4: 4 Durum Yönetimi (Yükleniyor, Boş, Hata)
+  const isInitialLoading = connectionStatus === 'Connecting' && totalVehicleCount === 0;
+  const isConnectionError = connectionStatus === 'Disconnected' && totalVehicleCount === 0;
+  const isFilterEmpty = totalVehicleCount > 0 && renderedCount === 0 && (searchQuery || routeQuery);
+
   return (
-    <div className="w-full h-screen">
+    <div className="relative w-full h-screen">
       <Map
         mapLib={maplibregl}
         cursor={cursor}
@@ -304,6 +325,36 @@ export function LiveMap() {
       >
         <NavigationControl position="bottom-right" />
       </Map>
+
+      {/* DURUM 1: İLK YÜKLENİYOR OVERLAY */}
+      {isInitialLoading && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
+          <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-zinc-100 shadow-2xl">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+            <span className="text-sm font-medium">{tMap('loading')}</span>
+          </div>
+        </div>
+      )}
+
+      {/* DURUM 2: BAĞLANTI HATASI OVERLAY */}
+      {isConnectionError && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-950/90 border border-rose-900 text-rose-300 text-xs font-medium shadow-2xl backdrop-blur-md">
+            <AlertTriangle className="h-4 w-4" />
+            <span>{tMap('connectionError')}</span>
+          </div>
+        </div>
+      )}
+
+      {/* DURUM 3: FİLTRE BOŞ DURUMU (Sonuç Bulunamadı) */}
+      {isFilterEmpty && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900/90 border border-zinc-800 text-amber-400 text-xs font-medium shadow-xl backdrop-blur-md">
+            <SearchX className="h-4 w-4" />
+            <span>{tMap('filterEmpty')}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

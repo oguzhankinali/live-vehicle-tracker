@@ -74,7 +74,7 @@ export function VehicleFilterBar() {
         placeholder={t('searchPlaceholder')}
         value={searchQuery}
         onChange={(e) => handleSearchChange(e.target.value)}
-        className="px-3 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-40 transition-all"
+        className="px-3 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-44 sm:w-56 transition-all"
       />
       <input
         type="text"
@@ -82,7 +82,7 @@ export function VehicleFilterBar() {
         placeholder={t('routePlaceholder')}
         value={routeQuery}
         onChange={(e) => handleRouteChange(e.target.value)}
-        className="px-3 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-32 transition-all"
+        className="px-3 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-36 sm:w-48 transition-all"
       />
 
       <span className="text-[11px] font-mono text-zinc-400 px-1.5 select-none">

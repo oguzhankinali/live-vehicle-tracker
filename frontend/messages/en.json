@@ -92,5 +92,10 @@
     "uptimeFormat": "{h}h {m}m {s}s",
     "healthStatus": "Health Status",
     "description": "Live ingestion stream and server operation metrics"
+  },
+  "Map": {
+    "loading": "Loading live vehicle positions...",
+    "filterEmpty": "No vehicles match the filter criteria",
+    "connectionError": "Live stream disconnected. Reconnecting..."
   }
 }
