@@ -57,7 +57,6 @@ export function VehicleFilterBar() {
     syncUrlWithDebounce('', '');
   };
 
-  // Harita katmanıyla birebir senkron çalışan filtreli araç sayısı
   const filteredCount = useMemo(() => {
     if (!searchQuery.trim() && !routeQuery.trim()) return totalVehicleCount;
 
@@ -67,14 +66,15 @@ export function VehicleFilterBar() {
   }, [vehicles, searchQuery, routeQuery, totalVehicleCount]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+      {/* text-base sm:text-xs: iPhone Safari'nin otomatik zoom yapmasını engeller */}
       <input
         type="text"
         aria-label={t('searchPlaceholder')}
         placeholder={t('searchPlaceholder')}
         value={searchQuery}
         onChange={(e) => handleSearchChange(e.target.value)}
-        className="px-3 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-44 sm:w-56 transition-all"
+        className="px-2.5 py-1 text-base sm:text-xs bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-28 sm:w-44 transition-all"
       />
       <input
         type="text"
@@ -82,10 +82,10 @@ export function VehicleFilterBar() {
         placeholder={t('routePlaceholder')}
         value={routeQuery}
         onChange={(e) => handleRouteChange(e.target.value)}
-        className="px-3 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-36 sm:w-48 transition-all"
+        className="px-2.5 py-1 text-base sm:text-xs bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-24 sm:w-36 transition-all"
       />
 
-      <span className="text-[11px] font-mono text-zinc-400 px-1.5 select-none">
+      <span className="text-[10px] sm:text-[11px] font-mono text-zinc-400 px-1 select-none">
         {t('stats', { filtered: filteredCount, total: totalVehicleCount })}
       </span>
 

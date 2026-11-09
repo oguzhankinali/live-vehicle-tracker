@@ -98,9 +98,10 @@ export function VehicleDetailCard() {
     setSelectedVehicleId(null);
   };
 
-  return (
+      return (
     <>
-      <div className="absolute top-20 right-4 z-20 w-80 md:w-96 bg-zinc-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-zinc-800 p-5 transition-all animate-in fade-in slide-in-from-right-4 duration-300">
+      {/* Şartname 4.4: 375px mobilde alt çekmece (bottom sheet), masaüstünde sağ kart */}
+      <div className="fixed inset-x-2 bottom-2 sm:inset-auto sm:top-20 sm:right-4 z-20 w-auto sm:w-80 md:w-96 max-h-[80dvh] overflow-y-auto bg-zinc-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-zinc-800 p-4 sm:p-5 transition-all animate-in fade-in slide-in-from-bottom-4 sm:slide-in-from-right-4 duration-300">
         <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
           <div className="flex items-center gap-2">
             <div className={`h-3 w-3 rounded-full ${isStale ? 'bg-amber-500' : 'bg-blue-500 animate-pulse'}`} />

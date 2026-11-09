@@ -76,7 +76,7 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
   const liveTotalPoints = historyTrailPoints.length > 0 ? historyTrailPoints.length : (trailPoints?.length || 0);
 
   return (
-    <div className="absolute bottom-6 left-6 z-20 w-[520px] max-w-[calc(100vw-3rem)] bg-zinc-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-zinc-800 p-5 flex flex-col max-h-[380px] animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed inset-x-2 bottom-2 sm:inset-auto sm:bottom-6 sm:left-6 z-30 w-auto sm:w-[520px] max-w-[calc(100vw-1rem)] bg-zinc-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-zinc-800 p-4 sm:p-5 flex flex-col max-h-[75dvh] sm:max-h-[380px] animate-in fade-in slide-in-from-bottom-4 duration-300">
       <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
         <div>
           <h2 className="text-sm font-bold text-zinc-100 flex items-center gap-2">

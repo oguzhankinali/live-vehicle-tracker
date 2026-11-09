@@ -307,7 +307,7 @@ export function LiveMap() {
   const isFilterEmpty = totalVehicleCount > 0 && renderedCount === 0 && (searchQuery || routeQuery);
 
   return (
-    <div className="relative w-full h-screen">
+    <div className="relative w-full h-dvh">
       <Map
         mapLib={maplibregl}
         cursor={cursor}
@@ -338,7 +338,7 @@ export function LiveMap() {
 
       {/* DURUM 2: BAĞLANTI HATASI OVERLAY */}
       {isConnectionError && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+        <div className="absolute top-36 sm:top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-950/90 border border-rose-900 text-rose-300 text-xs font-medium shadow-2xl backdrop-blur-md">
             <AlertTriangle className="h-4 w-4" />
             <span>{tMap('connectionError')}</span>
@@ -346,9 +346,9 @@ export function LiveMap() {
         </div>
       )}
 
-      {/* DURUM 3: FİLTRE BOŞ DURUMU (Sonuç Bulunamadı) */}
+      {/* DURUM 3: FİLTRE BOŞ DURUMU */}
       {isFilterEmpty && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+        <div className="absolute top-36 sm:top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900/90 border border-zinc-800 text-amber-400 text-xs font-medium shadow-xl backdrop-blur-md">
             <SearchX className="h-4 w-4" />
             <span>{tMap('filterEmpty')}</span>
