@@ -65,7 +65,10 @@
     "trailVisible": "Route trail is rendered on the map",
     "close": "Close",
     "startPoint": "Start Point",
-    "endPoint": "Current / End Point"
+    "endPoint": "Current / End Point",
+    "pointsCount": "{count} points",
+    "recordsCount": "({count} records)",
+    "unitKmh": "km/h"
   },
   "SystemStatus": {
     "title": "System Status & Metrics",

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useFormatter } from 'next-intl';
+import { X } from 'lucide-react';
 import { useVehicleHistory, useVehicleTrail } from '../api/getVehicleHistory';
 import { useVehicleStore } from '../store/useVehicleStore';
 
@@ -21,6 +22,8 @@ const RANGE_MS = {
 
 export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHistoryModalProps) {
   const t = useTranslations('History');
+  const format = useFormatter();
+
   const historyTrailPoints = useVehicleStore((state) => state.historyTrailPoints);
   const setHistoryTrailPoints = useVehicleStore((state) => state.setHistoryTrailPoints);
   const clearHistoryTrail = useVehicleStore((state) => state.clearHistoryTrail);
@@ -28,7 +31,8 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
   const [selectedRange, setSelectedRange] = useState<RangeOption>('1h');
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  // Zaman penceresi: selectedRange değiştiğinde VEYA modal her açıldığında (isOpen) taze hesaplanır
+  // isOpen bilinçli olarak eklendi: Modal her açıldığında zaman penceresini "şimdi"ye göre tazeler
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const { fromIso, toIso } = useMemo(() => {
     const nowMs = Math.floor(Date.now() / 1000) * 1000;
     return {
@@ -57,7 +61,6 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
     isOpen
   );
 
-  // TanStack Query önbelleğinde aynı dizi dursa bile modal tekrar açıldığında rotayı geri yükler
   useEffect(() => {
     if (isOpen && trailPoints && trailPoints.length > 0) {
       setHistoryTrailPoints(trailPoints);
@@ -95,17 +98,17 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
             </span>
             {liveTotalPoints > 0 && (
               <span className="text-zinc-400 font-mono text-[10px] ml-auto">
-                {liveTotalPoints} nokta
+                {t('pointsCount', { count: liveTotalPoints })}
               </span>
             )}
           </div>
         </div>
         <button
           onClick={handleClose}
-          className="text-zinc-400 hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-800 transition-colors"
+          className="text-zinc-400 hover:text-zinc-200 p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
           aria-label={t('close')}
         >
-          ✕
+          <X className="h-4 w-4" />
         </button>
       </div>
 
@@ -161,19 +164,23 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
           <table className="w-full text-left text-[11px]">
             <thead className="sticky top-0 bg-zinc-800/90 backdrop-blur border-b border-zinc-800 text-zinc-400">
               <tr>
-                <th className="py-1.5 px-2 font-semibold">{t('time')}</th>
-                <th className="py-1.5 px-2 font-semibold">{t('speed')}</th>
-                <th className="py-1.5 px-2 font-semibold">{t('coords')}</th>
+                <th scope="col" className="py-1.5 px-2 font-semibold">{t('time')}</th>
+                <th scope="col" className="py-1.5 px-2 font-semibold">{t('speed')}</th>
+                <th scope="col" className="py-1.5 px-2 font-semibold">{t('coords')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/50">
               {data.items.map((item, idx) => (
                 <tr key={`${item.feedEntityId}-${item.timestamp}-${idx}`} className="hover:bg-zinc-800/30">
                   <td className="py-1 px-2 font-mono text-zinc-300">
-                    {new Date(item.timestamp).toLocaleTimeString()}
+                    {format.dateTime(new Date(item.timestamp), {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })}
                   </td>
                   <td className="py-1 px-2 font-semibold text-zinc-200">
-                    {item.speed != null ? `${Math.round(item.speed * 3.6)} km/s` : '-'}
+                    {item.speed != null ? `${Math.round(item.speed * 3.6)} ${t('unitKmh')}` : '-'}
                   </td>
                   <td className="py-1 px-2 font-mono text-zinc-400 text-[10px]">
                     {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}
@@ -188,7 +195,7 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
       {!isLoading && data && data.totalPages > 1 && (
         <div className="flex items-center justify-between pt-3 mt-2 border-t border-zinc-800 text-[11px]">
           <span className="text-zinc-400 font-mono">
-            {t('page', { current: data.page, total: data.totalPages })} ({data.totalCount} kayıt)
+            {t('page', { current: data.page, total: data.totalPages })} {t('recordsCount', { count: data.totalCount })}
           </span>
           <div className="flex items-center gap-1.5">
             <button

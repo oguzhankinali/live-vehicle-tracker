@@ -65,7 +65,10 @@
     "trailVisible": "Harita üzerinde rota çizgisi gösteriliyor",
     "close": "Kapat",
     "startPoint": "Başlangıç",
-    "endPoint": "Son Konum"
+    "endPoint": "Son Konum",
+    "pointsCount": "{count} nokta",
+    "recordsCount": "({count} kayıt)",
+    "unitKmh": "km/s"
   },
   "SystemStatus": {
     "title": "Sistem Durumu ve Metrikler",
