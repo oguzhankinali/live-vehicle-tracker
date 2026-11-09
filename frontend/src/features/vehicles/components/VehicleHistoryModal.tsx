@@ -13,6 +13,12 @@ interface VehicleHistoryModalProps {
 
 type RangeOption = '30m' | '1h' | '3h';
 
+const RANGE_MS = {
+  '30m': 30 * 60 * 1000,
+  '1h': 60 * 60 * 1000,
+  '3h': 3 * 60 * 60 * 1000,
+} as const;
+
 export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHistoryModalProps) {
   const t = useTranslations('History');
   const historyTrailPoints = useVehicleStore((state) => state.historyTrailPoints);
@@ -22,17 +28,14 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
   const [selectedRange, setSelectedRange] = useState<RangeOption>('1h');
   const [currentPage, setCurrentPage] = useState<number>(1);
 
+  // Zaman penceresi: selectedRange değiştiğinde VEYA modal her açıldığında (isOpen) taze hesaplanır
   const { fromIso, toIso } = useMemo(() => {
-    const now = new Date();
-    let ms = 60 * 60 * 1000;
-    if (selectedRange === '30m') ms = 30 * 60 * 1000;
-    if (selectedRange === '3h') ms = 3 * 60 * 60 * 1000;
-    const fromDate = new Date(now.getTime() - ms);
+    const nowMs = Math.floor(Date.now() / 1000) * 1000;
     return {
-      fromIso: fromDate.toISOString(),
-      toIso: now.toISOString(),
+      fromIso: new Date(nowMs - RANGE_MS[selectedRange]).toISOString(),
+      toIso: new Date(nowMs).toISOString(),
     };
-  }, [selectedRange]);
+  }, [selectedRange, isOpen]);
 
   const { data, isLoading, isError, refetch } = useVehicleHistory(
     {
@@ -54,11 +57,12 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
     isOpen
   );
 
+  // TanStack Query önbelleğinde aynı dizi dursa bile modal tekrar açıldığında rotayı geri yükler
   useEffect(() => {
-    if (trailPoints && trailPoints.length > 0) {
+    if (isOpen && trailPoints && trailPoints.length > 0) {
       setHistoryTrailPoints(trailPoints);
     }
-  }, [trailPoints, setHistoryTrailPoints]);
+  }, [isOpen, trailPoints, setHistoryTrailPoints]);
 
   const handleClose = () => {
     clearHistoryTrail();
@@ -67,7 +71,6 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
 
   if (!isOpen) return null;
 
-  // Canlı nokta sayacı: Araç hareket edip yeni SignalR noktası geldikçe 168 -> 169 diye artar
   const liveTotalPoints = historyTrailPoints.length > 0 ? historyTrailPoints.length : (trailPoints?.length || 0);
 
   return (

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { vehicleSocketService } from "../services/vehicleSocket";
 import { useVehicleStore } from "../store/useVehicleStore";
+import { VEHICLE_EVICTION_MS, VEHICLE_EVICTION_INTERVAL_MS } from "../constants/timing";
 
 export function useVehicleStream() {
   const evictStaleVehicles = useVehicleStore((state) => state.evictStaleVehicles);
@@ -8,10 +9,10 @@ export function useVehicleStream() {
   useEffect(() => {
     vehicleSocketService.connect();
 
-    // Bellekte biriken hayalet araçları 60 saniyede bir periyodik temizle
+    // Bellekte biriken hayalet araçları merkezi sabit süresine göre periyodik temizle
     const staleInterval = setInterval(() => {
-      evictStaleVehicles(15 * 60 * 1000);
-    }, 60 * 1000);
+      evictStaleVehicles(VEHICLE_EVICTION_MS);
+    }, VEHICLE_EVICTION_INTERVAL_MS);
 
     return () => {
       clearInterval(staleInterval);

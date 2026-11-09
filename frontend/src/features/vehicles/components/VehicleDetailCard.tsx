@@ -6,11 +6,12 @@ import { AlertCircle } from 'lucide-react';
 import { useVehicleStore } from '../store/useVehicleStore';
 import { VehicleStopStatus, OccupancyStatus } from '../types/vehicle';
 import { VehicleHistoryModal } from './VehicleHistoryModal';
-import { Badge } from '@/components/ui/badge';
 
 export function VehicleDetailCard() {
   const t = useTranslations('VehicleDetail');
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  
+  // State sızıntısını önlemek için açık olan geçmiş modalını doğrudan araç ID'sine bağlıyoruz
+  const [historyVehicleId, setHistoryVehicleId] = useState<string | null>(null);
   const [now, setNow] = useState<number>(Date.now());
 
   const selectedVehicleId = useVehicleStore((state) => state.selectedVehicleId);
@@ -21,11 +22,12 @@ export function VehicleDetailCard() {
     selectedVehicleId ? state.vehicles[selectedVehicleId] : null
   );
 
-  // Canlı saniye sayacı: "x sn önce" her saniye tıkır tıkır akar
+  // Canlı saniye sayacı: Yalnızca ekranda seçili bir araç varken her saniye akar (CPU koruması)
   useEffect(() => {
+    if (!selectedVehicleId) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [selectedVehicleId]);
 
   if (!selectedVehicleId || !vehicle) return null;
 
@@ -34,8 +36,8 @@ export function VehicleDetailCard() {
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
 
-  // 15 dakikadan eski veriler için bayatlık uyarısı
-  const isStale = diffMin >= 15;
+  // 10 dakikadan eski veriler için bayatlık uyarısı
+  const isStale = diffMin >= 10;
 
   const speedDisplay =
     vehicle.speed != null ? `${Math.round(vehicle.speed * 3.6)} ${t('unitKmh')}` : '-';
@@ -84,6 +86,12 @@ export function VehicleDetailCard() {
     return t('minutesAgo', { min: diffMin });
   };
 
+  const handleCloseDetail = () => {
+    clearHistoryTrail();
+    setHistoryVehicleId(null);
+    setSelectedVehicleId(null);
+  };
+
   return (
     <>
       <div className="absolute top-20 right-4 z-20 w-80 md:w-96 bg-zinc-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-zinc-800 p-5 transition-all animate-in fade-in slide-in-from-right-4 duration-300">
@@ -95,10 +103,7 @@ export function VehicleDetailCard() {
             </h2>
           </div>
           <button
-            onClick={() => {
-              clearHistoryTrail();
-              setSelectedVehicleId(null);
-            }}
+            onClick={handleCloseDetail}
             className="text-zinc-400 hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-800 transition-colors"
             aria-label={t('close')}
           >
@@ -132,25 +137,25 @@ export function VehicleDetailCard() {
 
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
           <div className="p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
-            <span className="text-zinc-400 block text-[10px]">{t('route')}</span>
+            <span className="text-zinc-400 block text-[11px]">{t('route')}</span>
             <span className="font-semibold text-zinc-200 truncate block mt-0.5">
               {vehicle.routeId || '-'}
             </span>
           </div>
           <div className="p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
-            <span className="text-zinc-400 block text-[10px]">{t('trip')}</span>
+            <span className="text-zinc-400 block text-[11px]">{t('trip')}</span>
             <span className="font-semibold text-zinc-200 truncate block mt-0.5">
               {vehicle.tripId || '-'}
             </span>
           </div>
           <div className="p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
-            <span className="text-zinc-400 block text-[10px]">{t('speed')}</span>
+            <span className="text-zinc-400 block text-[11px]">{t('speed')}</span>
             <span className="font-semibold text-zinc-200 block mt-0.5">
               {speedDisplay}
             </span>
           </div>
           <div className="p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
-            <span className="text-zinc-400 block text-[10px]">{t('bearing')}</span>
+            <span className="text-zinc-400 block text-[11px]">{t('bearing')}</span>
             <span className="font-semibold text-zinc-200 block mt-0.5">
               {bearingDisplay}
             </span>
@@ -179,18 +184,20 @@ export function VehicleDetailCard() {
         </div>
 
         <button
-          onClick={() => setIsHistoryOpen(true)}
+          onClick={() => setHistoryVehicleId(vehicle.vehicleId)}
           className="mt-4 w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
         >
-          <span></span>
+          <span>📍</span>
           <span>{t('historyButton')}</span>
         </button>
       </div>
 
+      {/* key={vehicle.vehicleId} sayesinde araç değiştikçe modal state'i (sayfa no, aralık) tertemiz sıfırlanır */}
       <VehicleHistoryModal
+        key={vehicle.vehicleId}
         vehicleId={vehicle.vehicleId}
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
+        isOpen={historyVehicleId === vehicle.vehicleId}
+        onClose={() => setHistoryVehicleId(null)}
       />
     </>
   );

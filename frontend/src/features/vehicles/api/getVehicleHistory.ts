@@ -47,40 +47,32 @@ export function useVehicleHistory(params: FetchHistoryParams, enabled = true) {
   });
 }
 
+// 20 ayrı sayfa istemek yerine backend limitine uygun olarak tek seferde 500 kayıt çeker
 export async function fetchAllVehicleTrailPoints(params: {
   vehicleId: string;
   from?: string;
   to?: string;
 }): Promise<[number, number][]> {
-  const pageSize = 100;
-  const firstPage = await fetchVehicleHistory({
+  const result = await fetchVehicleHistory({
     vehicleId: params.vehicleId,
     from: params.from,
     to: params.to,
     page: 1,
-    pageSize,
+    pageSize: 500,
   });
 
-  const allItems: VehiclePositionRecord[] = [...firstPage.items];
+  const allItems: VehiclePositionRecord[] = [...result.items];
 
-  if (firstPage.totalPages > 1) {
-    const pagePromises: Promise<PagedResult<VehiclePositionRecord>>[] = [];
-    const maxPagesToFetch = Math.min(firstPage.totalPages, 20);
-    for (let p = 2; p <= maxPagesToFetch; p++) {
-      pagePromises.push(
-        fetchVehicleHistory({
-          vehicleId: params.vehicleId,
-          from: params.from,
-          to: params.to,
-          page: p,
-          pageSize,
-        })
-      );
-    }
-    const remainingPages = await Promise.all(pagePromises);
-    for (const pageData of remainingPages) {
-      allItems.push(...pageData.items);
-    }
+  // 3 saatte 500'den fazla nokta varsa kalan ikinci sayfayı da çek
+  if (result.totalPages > 1) {
+    const secondPage = await fetchVehicleHistory({
+      vehicleId: params.vehicleId,
+      from: params.from,
+      to: params.to,
+      page: 2,
+      pageSize: 500,
+    });
+    allItems.push(...secondPage.items);
   }
 
   // Kronolojik sıralama: Eskiden yeniye (Başlangıç -> Son Konum)

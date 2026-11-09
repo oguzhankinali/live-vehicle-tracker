@@ -93,13 +93,11 @@ export function LiveMap() {
     selectedVehicleId,
     setSelectedVehicleId,
     historyTrailPoints,
+    trailFitVersion,
   } = useVehicleStore();
 
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [cursor, setCursor] = useState<string>('auto');
-
-  // Canlı nokta geldikçe kameranın geriye fırlamasını önleyen odak kontrolü
-  const lastFittedVehicleIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -116,6 +114,7 @@ export function LiveMap() {
     map.setFilter('vehicles-highlight-layer', ['==', 'id', selectedVehicleId || '']);
   }, [selectedVehicleId]);
 
+  // Rota çizgisini ve uç noktaları güncelleme efekti
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -155,25 +154,27 @@ export function LiveMap() {
           },
         ],
       });
-
-      // Kamera odaklanması: SADECE araç ilk seçildiğinde 1 kez çalışır.
-      // Araç hareket edip yeni noktalar eklendikçe kullanıcının zoom'u bozulmaz!
-      if (lastFittedVehicleIdRef.current !== selectedVehicleId) {
-        lastFittedVehicleIdRef.current = selectedVehicleId;
-        const bounds = new maplibregl.LngLatBounds(historyTrailPoints[0], historyTrailPoints[0]);
-        for (let i = 1; i < historyTrailPoints.length; i++) {
-          bounds.extend(historyTrailPoints[i]);
-        }
-        map.fitBounds(bounds, { padding: 120, maxZoom: 14, duration: 1000 });
-      }
     } else {
       trailSource.setData({ type: 'FeatureCollection', features: [] });
       pointsSource.setData({ type: 'FeatureCollection', features: [] });
-      if (!selectedVehicleId) {
-        lastFittedVehicleIdRef.current = null;
-      }
     }
-  }, [historyTrailPoints, selectedVehicleId]);
+  }, [historyTrailPoints]);
+
+  // Kamera Odaklanma Efekti: SADECE trailFitVersion değiştiğinde (yeni rota yüklendiğinde) çalışır.
+  // Canlı noktalar geldikçe bu sayaç artmaz, dolayısıyla kullanıcının zoom'u bozulmaz.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || trailFitVersion === 0 || historyTrailPoints.length < 2) return;
+
+    const bounds = new maplibregl.LngLatBounds(historyTrailPoints[0], historyTrailPoints[0]);
+    for (let i = 1; i < historyTrailPoints.length; i++) {
+      bounds.extend(historyTrailPoints[i]);
+    }
+    map.fitBounds(bounds, { padding: 120, maxZoom: 14, duration: 800 });
+    // Bilinçli tercih: historyTrailPoints bilerek bağımlılığa eklenmemiştir;
+    // aksi halde her canlı WebSocket noktasında kamera geriye zıplar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trailFitVersion]);
 
   const handleMapLoad = (e: any) => {
     const map = e.target as maplibregl.Map;
@@ -279,7 +280,6 @@ export function LiveMap() {
       if (features && features.length > 0) {
         const clickedVehicleId = features[0].properties?.id;
         if (clickedVehicleId) {
-          lastFittedVehicleIdRef.current = null;
           setSelectedVehicleId(clickedVehicleId);
         }
       }
