@@ -1,9 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.Application.Common.Models;
 using VehicleTracker.Infrastructure;
-using Microsoft.OpenApi.Models;
-
+using VehicleTracker.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,34 +34,47 @@ builder.Services.AddCors(options =>
               .SetIsOriginAllowed(_ => true);
     });
 });
+
 // SignalR ve Publisher Kaydı
 builder.Services.AddSignalR(options => 
 {
-    // Yavaş istemciler sunucu belleğini şişirmesin diye buffer limitleri koyuyoruz.
-    // İstemci bu buffer'ı dolduracak kadar yavaş okuyorsa, SignalR onu otomatik olarak düşürür.
-    // Böylece diğer hızlı istemciler ve Ingestion döngüsü etkilenmez.
+    // İstemciden gelen paket boyutu ve stream buffer limiti
     options.MaximumReceiveMessageSize = 32768;
     options.StreamBufferCapacity = 10;
 });
 builder.Services.AddSingleton<VehicleTracker.WebApi.Services.SignalRVehiclePublisher>();
 builder.Services.AddSingleton<IVehiclePublisher>(sp => sp.GetRequiredService<VehicleTracker.WebApi.Services.SignalRVehiclePublisher>());
+
 var app = builder.Build();
+
+// DOCKER İÇİN OTOMATİK VERİTABANI MİGRATİON'I
+// Konteyner ayağa kalktığında PostgreSQL sıfır olacağı için tabloları ve TimescaleDB hypertable'ını otomatik oluşturur
+using (var scope = app.Services.CreateScope())
+{
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        logger.LogInformation("Veritabani migration'lari kontrol ediliyor ve uygulaniyor...");
+        db.Database.Migrate();
+        logger.LogInformation("Veritabani migration'lari basariyla tamamlandi.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Veritabani migration uygulanirken bir hata olustu!");
+        throw;
+    }
+}
 
 app.UseCors();
 
-// Geliştirme ortamında Swagger UI'ı etkinleştir
-if (app.Environment.IsDevelopment())
+// Şartname 3.2: Değerlendiricinin konteyner üzerinden test edebilmesi için Swagger UI her ortamda açık
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger(c => 
-    {
-        c.SerializeAsV2 = true; 
-    });
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Live Vehicle Tracker API v1");
-        c.RoutePrefix = "swagger";
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Live Vehicle Tracker API v1");
+    c.RoutePrefix = "swagger";
+});
 
 // -----------------------------------------------------------------------------
 // REST Uç Noktaları (Minimal API)
@@ -95,7 +109,6 @@ vehiclesGroup.MapGet("/latest", (
 .WithName("GetLatestVehiclePositions")
 .WithSummary("Tum aktif araclarin anlik guncel durumlarini doner.");
 
-
 // 2. Uç Nokta: Bir aracın zaman aralığına göre sayfalanmış konum geçmişi
 vehiclesGroup.MapGet("/{vehicleId}/history", async (
     [FromRoute] string vehicleId,
@@ -119,7 +132,6 @@ vehiclesGroup.MapGet("/{vehicleId}/history", async (
 })
 .WithName("GetVehicleHistory")
 .WithSummary("Secilen aracin son 3 saatlik filtrelenebilir konum gecmisini sayfali doner.");
-
 
 // 3. Uç Nokta: Sistem Durumu ve Metrikleri
 var systemGroup = app.MapGroup("/api/system").WithTags("System");
