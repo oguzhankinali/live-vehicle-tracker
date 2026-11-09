@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.Application.Common.Models;
+using VehicleTracker.Application.Ingestion;
 using VehicleTracker.Infrastructure;
 using VehicleTracker.Infrastructure.Persistence;
 
@@ -38,7 +40,6 @@ builder.Services.AddCors(options =>
 // SignalR ve Publisher Kaydı
 builder.Services.AddSignalR(options => 
 {
-    // İstemciden gelen paket boyutu ve stream buffer limiti
     options.MaximumReceiveMessageSize = 32768;
     options.StreamBufferCapacity = 10;
 });
@@ -47,8 +48,7 @@ builder.Services.AddSingleton<IVehiclePublisher>(sp => sp.GetRequiredService<Veh
 
 var app = builder.Build();
 
-// DOCKER İÇİN OTOMATİK VERİTABANI MİGRATİON'I
-// Konteyner ayağa kalktığında PostgreSQL sıfır olacağı için tabloları ve TimescaleDB hypertable'ını otomatik oluşturur
+// DOCKER İÇİN OTOMATİK VERİTABANI MİGRATİON'I VE DİNAMİK CHUNK AYARI
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
@@ -56,12 +56,22 @@ using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         logger.LogInformation("Veritabani migration'lari kontrol ediliyor ve uygulaniyor...");
+        
+        // 1. Önce tabloları oluştur
         db.Database.Migrate();
-        logger.LogInformation("Veritabani migration'lari basariyla tamamlandi.");
+        
+        // 2. Tablo oluştuktan hemen sonra chunk aralığını config'den dinamik olarak ayarla
+        var ingestion = scope.ServiceProvider.GetRequiredService<IOptions<IngestionOptions>>().Value;
+        var chunkSeconds = (int)ingestion.ChunkInterval.TotalSeconds;
+        #pragma warning disable EF1002 // chunkSeconds int tipindedir, SQL injection riski yoktur
+        db.Database.ExecuteSqlRaw($"SELECT set_chunk_time_interval('vehicle_positions', INTERVAL '{chunkSeconds} seconds');");
+        #pragma warning restore EF1002
+
+        logger.LogInformation("Veritabani migration'lari ve chunk araligi ({Seconds} sn) basariyla tamamlandi.", chunkSeconds);
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Veritabani migration uygulanirken bir hata olustu!");
+        logger.LogError(ex, "Veritabani migration veya chunk ayarlamasi yapilirken bir hata olustu!");
         throw;
     }
 }
@@ -69,7 +79,11 @@ using (var scope = app.Services.CreateScope())
 app.UseCors();
 
 // Şartname 3.2: Değerlendiricinin konteyner üzerinden test edebilmesi için Swagger UI her ortamda açık
-app.UseSwagger();
+// Swagger UI, Swashbuckle'ın ürettiği openapi 3.0.4'ü render edemiyor; V2'ye sabitlendi.
+app.UseSwagger(c => 
+{
+    c.SerializeAsV2 = true; 
+});
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Live Vehicle Tracker API v1");
@@ -146,6 +160,6 @@ systemGroup.MapGet("/status", ([FromServices] ISystemMetricsService metrics) =>
 
 // SignalR Hub Endpoint'i
 app.MapHub<VehicleTracker.WebApi.Hubs.VehicleHub>("/hubs/vehicles");
-app.MapGet("/", () => Results.Redirect("/swagger"));
+app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 
 app.Run();

@@ -11,4 +11,8 @@ public sealed class IngestionOptions
 
     // Otomatik retention temizleme döngüsü periyodu
     public TimeSpan CleanupInterval { get; set; } = TimeSpan.FromMinutes(1);
+
+    // Kendime not: Chunk aralığı retention hassasiyetini belirler.
+    // Fiziksel veri en fazla Retention + ChunkInterval kadar kalır (Örn: 3 saat + 5 dk).
+    public TimeSpan ChunkInterval { get; set; } = TimeSpan.FromMinutes(5);
 }

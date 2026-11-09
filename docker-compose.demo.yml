@@ -1,0 +1,6 @@
+services:
+  backend:
+    environment:
+      - Ingestion__ChunkInterval=00:01:00
+      - Ingestion__Retention=00:03:00
+      - Ingestion__CleanupInterval=00:00:10
