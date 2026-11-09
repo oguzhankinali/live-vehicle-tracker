@@ -55,7 +55,10 @@ export function SystemStatusModal({ isOpen, onClose }: SystemStatusModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg bg-zinc-900 border-zinc-800 text-zinc-100 p-6">
+      <DialogContent 
+        closeLabel={t('close')}
+        className="sm:max-w-lg bg-zinc-900 border-zinc-800 text-zinc-100 p-6"
+      >
         <DialogHeader className="border-b border-zinc-800 pb-3">
           <div className="flex items-center gap-2.5">
             <Activity className="h-5 w-5 text-blue-400" />
@@ -63,9 +66,8 @@ export function SystemStatusModal({ isOpen, onClose }: SystemStatusModalProps) {
               {t('title')}
             </DialogTitle>
           </div>
-          {/* Radix UI için erişilebilir gizli açıklama */}
           <DialogDescription className="sr-only">
-            {t('title')}
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
 

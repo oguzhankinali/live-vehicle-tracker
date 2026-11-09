@@ -31,14 +31,13 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
   const [selectedRange, setSelectedRange] = useState<RangeOption>('1h');
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  // isOpen bilinçli olarak eklendi: Modal her açıldığında zaman penceresini "şimdi"ye göre tazeler
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const { fromIso, toIso } = useMemo(() => {
     const nowMs = Math.floor(Date.now() / 1000) * 1000;
     return {
       fromIso: new Date(nowMs - RANGE_MS[selectedRange]).toISOString(),
       toIso: new Date(nowMs).toISOString(),
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isOpen bilinçli eklendi: modal her açıldığında pencere "şimdi"ye tazelenir
   }, [selectedRange, isOpen]);
 
   const { data, isLoading, isError, refetch } = useVehicleHistory(
@@ -174,6 +173,8 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
                 <tr key={`${item.feedEntityId}-${item.timestamp}-${idx}`} className="hover:bg-zinc-800/30">
                   <td className="py-1 px-2 font-mono text-zinc-300">
                     {format.dateTime(new Date(item.timestamp), {
+                      day: '2-digit',
+                      month: 'short',
                       hour: '2-digit',
                       minute: '2-digit',
                       second: '2-digit',
@@ -183,7 +184,8 @@ export function VehicleHistoryModal({ vehicleId, isOpen, onClose }: VehicleHisto
                     {item.speed != null ? `${Math.round(item.speed * 3.6)} ${t('unitKmh')}` : '-'}
                   </td>
                   <td className="py-1 px-2 font-mono text-zinc-400 text-[10px]">
-                    {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}
+                    {format.number(item.latitude, { minimumFractionDigits: 4, maximumFractionDigits: 4 })},{' '}
+                    {format.number(item.longitude, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                   </td>
                 </tr>
               ))}

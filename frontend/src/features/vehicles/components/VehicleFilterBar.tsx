@@ -4,6 +4,7 @@ import { useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useVehicleStore } from '../store/useVehicleStore';
+import { matchesFilter } from '../lib/matchesFilter';
 
 export function VehicleFilterBar() {
   const t = useTranslations('Filter');
@@ -56,20 +57,13 @@ export function VehicleFilterBar() {
     syncUrlWithDebounce('', '');
   };
 
-  // Şartname 4.1: Canlı filtrelenen araç sayısını hesapla (vehicleId veya plaka/etiket eşleşmesi)
+  // Harita katmanıyla birebir senkron çalışan filtreli araç sayısı
   const filteredCount = useMemo(() => {
-    const s = searchQuery.trim().toLowerCase();
-    const r = routeQuery.trim().toLowerCase();
-    if (!s && !r) return totalVehicleCount;
+    if (!searchQuery.trim() && !routeQuery.trim()) return totalVehicleCount;
 
-    return Object.values(vehicles).filter((v) => {
-      const matchSearch =
-        !s ||
-        v.vehicleId.toLowerCase().includes(s) ||
-        (v.vehicleLabel && v.vehicleLabel.toLowerCase().includes(s));
-      const matchRoute = !r || (v.routeId && v.routeId.toLowerCase().includes(r));
-      return matchSearch && matchRoute;
-    }).length;
+    return Object.values(vehicles).filter((v) =>
+      matchesFilter(v, searchQuery, routeQuery)
+    ).length;
   }, [vehicles, searchQuery, routeQuery, totalVehicleCount]);
 
   return (
@@ -91,7 +85,6 @@ export function VehicleFilterBar() {
         className="px-3 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-32 transition-all"
       />
 
-      {/* Şartname 4.1: Canlı araç istatistik rozeti */}
       <span className="text-[11px] font-mono text-zinc-400 px-1.5 select-none">
         {t('stats', { filtered: filteredCount, total: totalVehicleCount })}
       </span>

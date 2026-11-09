@@ -1,6 +1,7 @@
 {
   "Index": {
-    "title": "Canlı Araç Takibi"
+    "title": "Canlı Araç Takibi",
+    "switchLanguage": "Dili değiştir"
   },
   "Connection": {
     "Connected": "Canlı Yayın Aktif",
@@ -89,6 +90,7 @@
     "secondsAgo": "{sec} sn önce",
     "justNow": "Az önce",
     "uptimeFormat": "{h} sa {m} dk {s} sn",
-    "healthStatus": "Sağlık Durumu"
+    "healthStatus": "Sağlık Durumu",
+    "description": "Canlı veri akışı ve sunucu operasyon metrikleri"
   }
 }

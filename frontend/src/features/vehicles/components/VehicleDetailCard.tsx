@@ -22,8 +22,15 @@ export function VehicleDetailCard() {
     selectedVehicleId ? state.vehicles[selectedVehicleId] : null
   );
 
+  // Araç seçimi değiştiğinde veya seçim kalktığında geçmiş modal ID'sini sıfırla (State sızıntısını önler)
+  useEffect(() => {
+    setHistoryVehicleId(null);
+  }, [selectedVehicleId]);
+
+  // Canlı saniye sayacı: Yalnızca seçili araç varken çalışır; anında Date.now() ile başlar
   useEffect(() => {
     if (!selectedVehicleId) return;
+    setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [selectedVehicleId]);
@@ -110,7 +117,7 @@ export function VehicleDetailCard() {
           </button>
         </div>
 
-        {/* Eski veri / Sinyal Yok Uyarı Rozeti (Sıfır gömülü metin) */}
+        {/* Eski veri / Sinyal Yok Uyarı Rozeti */}
         {isStale && (
           <div className="mt-3 flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
             <AlertCircle className="h-4 w-4 shrink-0" />

@@ -7,6 +7,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useVehicleStore } from '@/features/vehicles/store/useVehicleStore';
 import { useVehicleStream } from '@/features/vehicles/hooks/useVehicleStream';
 import { VehiclePositionRecord } from '@/features/vehicles/types/vehicle';
+import { matchesFilter } from '@/features/vehicles/lib/matchesFilter';
+
 
 const osmStyle = {
   version: 8,
@@ -36,20 +38,14 @@ function toGeoJson(
 ): GeoJSON.FeatureCollection {
   const raw = Object.values(vehiclesRecord);
   const features: GeoJSON.Feature[] = [];
-  const sQuery = search.trim().toLowerCase();
-  const rQuery = route.trim().toLowerCase();
 
   for (let i = 0; i < raw.length; i++) {
     const v = raw[i];
     const lon = v.longitude;
     const lat = v.latitude;
-    const vId = v.vehicleId;
-    const rId = v.routeId || '';
 
-    const matchesSearch = !sQuery || vId.toLowerCase().includes(sQuery);
-    const matchesRoute = !rQuery || rId.toLowerCase().includes(rQuery);
-
-    if (matchesSearch && matchesRoute) {
+    // Filtre çubuğu ile birebir aynı ortak eşleme kuralı
+    if (matchesFilter(v, search, route)) {
       if (
         typeof lon === 'number' &&
         typeof lat === 'number' &&
@@ -67,8 +63,8 @@ function toGeoJson(
             coordinates: [lon, lat],
           },
           properties: {
-            id: vId,
-            routeId: rId,
+            id: v.vehicleId,
+            routeId: v.routeId || '',
             speed: v.speed || 0,
             bearing: v.bearing || 0,
           },
@@ -82,7 +78,6 @@ function toGeoJson(
     features,
   };
 }
-
 export function LiveMap() {
   useVehicleStream();
 

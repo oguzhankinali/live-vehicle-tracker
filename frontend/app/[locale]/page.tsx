@@ -5,6 +5,7 @@ import { ConnectionBadge } from '@/features/vehicles/components/ConnectionBadge'
 import { VehicleFilterBar } from '@/features/vehicles/components/VehicleFilterBar';
 import { VehicleDetailCard } from '@/features/vehicles/components/VehicleDetailCard';
 import { SystemStatusButton } from '@/features/system/components/SystemStatusButton';
+import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher';
 
 export default async function HomePage({
   params
@@ -35,8 +36,13 @@ export default async function HomePage({
         </Suspense>
 
         <div className="h-4 w-[1px] bg-zinc-800" />
-        {/* Şartname 4.3: Sistem Durumu Butonu ve Modalı */}
         <SystemStatusButton />
+
+        <div className="h-4 w-[1px] bg-zinc-800" />
+        {/* Next.js App Router kuralı: useSearchParams kullanan istemci bileşeni Suspense ile sarılır */}
+        <Suspense fallback={<div className="h-7 w-9 bg-zinc-800/50 rounded-lg animate-pulse" />}>
+          <LanguageSwitcher />
+        </Suspense>
       </header>
 
       {/* Sağ tarafta açılan canlı araç detay kartı */}

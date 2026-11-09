@@ -1,6 +1,7 @@
 {
   "Index": {
-    "title": "Live Vehicle Tracker"
+    "title": "Live Vehicle Tracker",
+    "switchLanguage": "Switch language"
   },
   "Connection": {
     "Connected": "Live Feed Active",
@@ -89,6 +90,7 @@
     "secondsAgo": "{sec}s ago",
     "justNow": "Just now",
     "uptimeFormat": "{h}h {m}m {s}s",
-    "healthStatus": "Health Status"
+    "healthStatus": "Health Status",
+    "description": "Live ingestion stream and server operation metrics"
   }
 }
