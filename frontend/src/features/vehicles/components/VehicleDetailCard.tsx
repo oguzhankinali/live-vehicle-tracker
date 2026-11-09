@@ -2,15 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, MapPin, X } from 'lucide-react';
 import { useVehicleStore } from '../store/useVehicleStore';
 import { VehicleStopStatus, OccupancyStatus } from '../types/vehicle';
+import { VEHICLE_STALE_WARN_MS } from '../constants/timing';
 import { VehicleHistoryModal } from './VehicleHistoryModal';
 
 export function VehicleDetailCard() {
   const t = useTranslations('VehicleDetail');
   
-  // State sızıntısını önlemek için açık olan geçmiş modalını doğrudan araç ID'sine bağlıyoruz
   const [historyVehicleId, setHistoryVehicleId] = useState<string | null>(null);
   const [now, setNow] = useState<number>(Date.now());
 
@@ -22,7 +22,6 @@ export function VehicleDetailCard() {
     selectedVehicleId ? state.vehicles[selectedVehicleId] : null
   );
 
-  // Canlı saniye sayacı: Yalnızca ekranda seçili bir araç varken her saniye akar (CPU koruması)
   useEffect(() => {
     if (!selectedVehicleId) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -36,8 +35,8 @@ export function VehicleDetailCard() {
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
 
-  // 10 dakikadan eski veriler için bayatlık uyarısı
-  const isStale = diffMin >= 10;
+  // Merkezi sabitten (10 dakika) okunan bayatlık eşiği
+  const isStale = diffMs >= VEHICLE_STALE_WARN_MS;
 
   const speedDisplay =
     vehicle.speed != null ? `${Math.round(vehicle.speed * 3.6)} ${t('unitKmh')}` : '-';
@@ -104,18 +103,18 @@ export function VehicleDetailCard() {
           </div>
           <button
             onClick={handleCloseDetail}
-            className="text-zinc-400 hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-800 transition-colors"
+            className="text-zinc-400 hover:text-zinc-200 p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
             aria-label={t('close')}
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Eski veri / Sinyal Yok Uyarı Rozeti */}
+        {/* Eski veri / Sinyal Yok Uyarı Rozeti (Sıfır gömülü metin) */}
         {isStale && (
           <div className="mt-3 flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>Son sinyal {diffMin} dk önce alındı (Araç durağan olabilir)</span>
+            <span>{t('staleWarning', { min: diffMin })}</span>
           </div>
         )}
 
@@ -187,12 +186,11 @@ export function VehicleDetailCard() {
           onClick={() => setHistoryVehicleId(vehicle.vehicleId)}
           className="mt-4 w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
         >
-          <span>📍</span>
+          <MapPin className="h-4 w-4" />
           <span>{t('historyButton')}</span>
         </button>
       </div>
 
-      {/* key={vehicle.vehicleId} sayesinde araç değiştikçe modal state'i (sayfa no, aralık) tertemiz sıfırlanır */}
       <VehicleHistoryModal
         key={vehicle.vehicleId}
         vehicleId={vehicle.vehicleId}

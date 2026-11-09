@@ -42,7 +42,8 @@
     "occNoData": "No Data",
     "occNotBoardable": "Not Boardable",
     "close": "Close",
-    "historyButton": "Position History & Trail"
+    "historyButton": "Position History & Trail",
+    "staleWarning": "Last signal received {min}m ago (Vehicle may be stationary)"
   },
   "History": {
     "title": "Position History & Trail",

@@ -42,7 +42,8 @@
     "occNoData": "Veri Yok",
     "occNotBoardable": "Binişe Kapalı",
     "close": "Kapat",
-    "historyButton": "Konum Geçmişi ve Rota"
+    "historyButton": "Konum Geçmişi ve Rota",
+    "staleWarning": "Son sinyal {min} dk önce alındı (Araç durağan olabilir)"
   },
   "History": {
     "title": "Konum Geçmişi ve Rota",

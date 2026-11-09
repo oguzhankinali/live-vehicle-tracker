@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 
 interface SystemStatusModalProps {
@@ -26,20 +27,14 @@ export function SystemStatusModal({ isOpen, onClose }: SystemStatusModalProps) {
   const [secondsAgo, setSecondsAgo] = useState<number | null>(null);
   const [interpolatedUptime, setInterpolatedUptime] = useState<number>(0);
 
-  // Uptime ve Son Okuma için saniyelik pürüzsüz sayaç
   useEffect(() => {
     if (!data) return;
 
-    // Sunucudan gelen veriyi baz al
     setInterpolatedUptime(data.uptimeSeconds);
-
     const basePollTime = data.lastSuccessfulPollUtc ? new Date(data.lastSuccessfulPollUtc).getTime() : null;
 
     const timer = setInterval(() => {
-      // Uptime her saniye akar
       setInterpolatedUptime((prev) => prev + 1);
-
-      // Son okuma saniyesi güncellenir
       if (basePollTime) {
         const diffSec = Math.max(0, Math.floor((Date.now() - basePollTime) / 1000));
         setSecondsAgo(diffSec);
@@ -68,6 +63,10 @@ export function SystemStatusModal({ isOpen, onClose }: SystemStatusModalProps) {
               {t('title')}
             </DialogTitle>
           </div>
+          {/* Radix UI için erişilebilir gizli açıklama */}
+          <DialogDescription className="sr-only">
+            {t('title')}
+          </DialogDescription>
         </DialogHeader>
 
         {/* 1. DURUM: YÜKLENİYOR (Loading Skeleton) */}
@@ -101,7 +100,6 @@ export function SystemStatusModal({ isOpen, onClose }: SystemStatusModalProps) {
         {/* 4. DURUM: BAŞARILI (Success State) */}
         {!isLoading && !isError && data && data.lastSuccessfulPollUtc && (
           <div className="flex flex-col gap-4 mt-2">
-            {/* Sağlık Durumu Rozeti */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/40 border border-zinc-800">
               <span className="text-xs text-zinc-400 font-medium">{t('healthStatus')}</span>
               {!isDelayed ? (
@@ -117,7 +115,6 @@ export function SystemStatusModal({ isOpen, onClose }: SystemStatusModalProps) {
               )}
             </div>
 
-            {/* Metrik Kartları Grid */}
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-3 bg-zinc-800/30 rounded-xl border border-zinc-800/80">
                 <span className="text-zinc-400 block text-[11px] mb-1">{t('lastPoll')}</span>

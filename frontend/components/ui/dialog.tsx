@@ -40,9 +40,11 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg p-1 text-zinc-400 opacity-70 transition-opacity hover:opacity-100 hover:bg-zinc-800 focus:outline-none focus:ring-1 focus:ring-ring">
+      <DialogPrimitive.Close 
+        aria-label="Close"
+        className="absolute right-4 top-4 rounded-lg p-1 text-zinc-400 opacity-70 transition-opacity hover:opacity-100 hover:bg-zinc-800 focus:outline-none focus:ring-1 focus:ring-ring"
+      >
         <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>
@@ -72,6 +74,18 @@ const DialogTitle = React.forwardRef<
 ));
 DialogTitle.displayName = DialogPrimitive.Title.displayName;
 
+const DialogDescription = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    className={cn('text-xs text-zinc-400', className)}
+    {...props}
+  />
+));
+DialogDescription.displayName = DialogPrimitive.Description.displayName;
+
 export {
   Dialog,
   DialogPortal,
@@ -81,4 +95,5 @@ export {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 };
