@@ -69,10 +69,19 @@ public sealed class DbWriterWorker : BackgroundService
                      (exception.SqlState.StartsWith("22", StringComparison.Ordinal) || 
                       exception.SqlState.StartsWith("23", StringComparison.Ordinal)))
             {
-                _logger.LogError(
-                    exception,
-                    "Kalici DB hatasi: {Count} kayitlik batch atildi (VERI KAYBI).",
-                    batch.Count);
+                if (batch.Count == 1)
+                {
+                    _logger.LogError(
+                        exception,
+                        "Kalici DB hatasi: bozuk kayit atildi (1 kayit). EntityId={EntityId}",
+                        batch[0].FeedEntityId);
+                    return;
+                }
+
+                // Paketi ikiye bölerek sağlam kayıtları kurtar, sadece bozuk olanı izole et
+                var mid = batch.Count / 2;
+                await WriteWithRetryAsync(batch.Take(mid).ToList(), cancellationToken);
+                await WriteWithRetryAsync(batch.Skip(mid).ToList(), cancellationToken);
                 return;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
