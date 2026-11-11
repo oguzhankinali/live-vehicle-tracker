@@ -36,12 +36,17 @@ function mergeRecords(
 ): Record<string, VehiclePositionRecord> {
   if (!incoming || incoming.length === 0) return current;
 
+  const cutoff = Date.now() - VEHICLE_EVICTION_MS;
   const next = { ...current };
   let hasChanges = false;
 
   for (let i = 0; i < incoming.length; i++) {
     const item = incoming[i];
     if (!item.vehicleId) continue;
+
+    const incomingTime = new Date(item.timestamp).getTime();
+    // Kendime not: 30 dakikadan eski bayat araçların haritaya hayalet olarak girmesini önle
+    if (isNaN(incomingTime) || incomingTime < cutoff) continue;
 
     const existing = next[item.vehicleId];
     if (!existing) {
@@ -50,7 +55,6 @@ function mergeRecords(
       continue;
     }
 
-    const incomingTime = new Date(item.timestamp).getTime();
     const existingTime = new Date(existing.timestamp).getTime();
 
     if (incomingTime >= existingTime) {
@@ -76,10 +80,16 @@ export const useVehicleStore = create<VehicleState>((set) => ({
   setConnectionStatus: (status) => set({ connectionStatus: status }),
 
   setSnapshot: (snapshot) => {
+    const cutoff = Date.now() - VEHICLE_EVICTION_MS;
     const map: Record<string, VehiclePositionRecord> = {};
+    
     for (let i = 0; i < snapshot.length; i++) {
       const v = snapshot[i];
-      if (v.vehicleId) {
+      if (!v.vehicleId) continue;
+
+      const vTime = new Date(v.timestamp).getTime();
+      // İlk snapshot'ta da 30 dakikadan eski bayat araçları doğrudan filtrele
+      if (!isNaN(vTime) && vTime >= cutoff) {
         map[v.vehicleId] = v;
       }
     }
