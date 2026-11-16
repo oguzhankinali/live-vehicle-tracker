@@ -127,28 +127,34 @@ foreach (var origin in allowedOrigins)
 
 app.UseWebSockets(webSocketOptions);
 
-app.UseSwagger(c =>
-{
-    c.SerializeAsV2 = true;
-});
+var swaggerEnabled =
+    app.Environment.IsDevelopment() ||
+    app.Configuration.GetValue<bool>("Swagger:Enabled");
 
-app.UseSwaggerUI(c =>
+if (swaggerEnabled)
 {
-    c.SwaggerEndpoint(
-        "/swagger/v1/swagger.json",
-        "Live Vehicle Tracker API v1");
+    app.UseSwagger(c =>
+    {
+        c.SerializeAsV2 = true;
+    });
 
-    c.RoutePrefix = "swagger";
-});
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint(
+            "/swagger/v1/swagger.json",
+            "Live Vehicle Tracker API v1");
+
+        c.RoutePrefix = "swagger";
+    });
+
+    app.MapGet("/", () => Results.Redirect("/swagger"))
+        .ExcludeFromDescription();
+}
 
 app.MapVehicleEndpoints();
 app.MapSystemEndpoints();
 
 app.MapHub<VehicleTracker.WebApi.Hubs.VehicleHub>(
     "/hubs/vehicles");
-
-app.MapGet("/", () =>
-    Results.Redirect("/swagger"))
-    .ExcludeFromDescription();
 
 app.Run();
