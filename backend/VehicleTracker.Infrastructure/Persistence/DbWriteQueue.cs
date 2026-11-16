@@ -21,6 +21,8 @@ public sealed class DbWriteQueue : IVehicleWriteQueue
             });
     }
 
+    public int PendingBatchCount => _channel.Reader.Count;
+
     public void Complete()
     {
         _channel.Writer.TryComplete();

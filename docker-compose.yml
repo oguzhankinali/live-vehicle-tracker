@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
     container_name: vehicle-tracker-backend
     restart: unless-stopped
-    stop_grace_period: 30s
+    stop_grace_period: 50s
     depends_on:
       timescaledb:
         condition: service_healthy

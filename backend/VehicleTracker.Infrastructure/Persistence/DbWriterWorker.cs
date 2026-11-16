@@ -8,7 +8,8 @@ namespace VehicleTracker.Infrastructure.Persistence;
 
 public sealed class DbWriterWorker : BackgroundService
 {
-    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan DrainTimeout =
+        TimeSpan.FromSeconds(25);
 
     private readonly DbWriteQueue _queue;
     private readonly IVehiclePositionWriter _writer;
@@ -27,30 +28,54 @@ public sealed class DbWriterWorker : BackgroundService
         _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(
+        CancellationToken stoppingToken)
     {
-        _logger.LogInformation("DbWriterWorker baslatildi. DB yazimlari arka planda islenecek.");
+        _logger.LogInformation(
+            "DbWriterWorker baslatildi. DB yazimlari arka planda islenecek.");
 
         using var drainCts = new CancellationTokenSource();
-        using var registration = stoppingToken.Register(() => drainCts.CancelAfter(DrainTimeout));
+
+        using var registration = stoppingToken.Register(
+            () => drainCts.CancelAfter(DrainTimeout));
+
+        var activeBatchCount = 0;
+        var permanentlyRejectedRecords = 0L;
 
         try
         {
             await foreach (var batch in _queue.ReadAllAsync(drainCts.Token))
             {
-                await WriteWithRetryAsync(batch, drainCts.Token);
+                activeBatchCount = batch.Count;
+
+                permanentlyRejectedRecords += await WriteWithRetryAsync(
+                    batch,
+                    drainCts.Token);
+
+                activeBatchCount = 0;
             }
 
-            _logger.LogInformation("DbWriterWorker: kuyruk bosaltildi, durduruluyor.");
+            _logger.LogInformation(
+                "DB kuyrugu bosaltildi. BekleyenBatch={Pending}, " +
+                "KaliciReddedilenKayit={Rejected}",
+                _queue.PendingBatchCount,
+                permanentlyRejectedRecords);
         }
         catch (OperationCanceledException)
+            when (drainCts.IsCancellationRequested)
         {
             _logger.LogError(
-                "Kapanis suresi doldu; kuyrukta yazilamayan kayitlar kalmis olabilir (VERI KAYBI).");
+                "DB yazicisi zaman asimina ugradi. " +
+                "BekleyenBatch={Pending}, AktifBatchKayit={Active}, " +
+                "KaliciReddedilenKayit={Rejected}. " +
+                "Kalici yazilmamis veriler kaybolabilir.",
+                _queue.PendingBatchCount,
+                activeBatchCount,
+                permanentlyRejectedRecords);
         }
     }
 
-    private async Task WriteWithRetryAsync(
+    private async Task<long> WriteWithRetryAsync(
         IReadOnlyList<VehiclePositionRecord> batch,
         CancellationToken cancellationToken)
     {
@@ -60,40 +85,58 @@ public sealed class DbWriterWorker : BackgroundService
         {
             try
             {
-                var inserted = await _writer.WriteAsync(batch, cancellationToken);
-                _metrics.RecordRecordsWritten(inserted); // Gerçek yazılanı say
-                return;
+                var inserted = await _writer.WriteAsync(
+                    batch,
+                    cancellationToken);
+
+                _metrics.RecordRecordsWritten(inserted);
+
+                return 0;
             }
             catch (PostgresException exception)
-                when (exception.SqlState != null && 
-                     (exception.SqlState.StartsWith("22", StringComparison.Ordinal) || 
-                      exception.SqlState.StartsWith("23", StringComparison.Ordinal)))
+                when (exception.SqlState.StartsWith(
+                          "22", StringComparison.Ordinal) ||
+                      exception.SqlState.StartsWith(
+                          "23", StringComparison.Ordinal))
             {
                 if (batch.Count == 1)
                 {
                     _logger.LogError(
                         exception,
-                        "Kalici DB hatasi: bozuk kayit atildi (1 kayit). EntityId={EntityId}",
-                        batch[0].FeedEntityId);
-                    return;
+                        "Kalici DB hatasi: kayit yazilamadi ve atlandi. " +
+                        "EntityId={EntityId}, SqlState={SqlState}",
+                        batch[0].FeedEntityId,
+                        exception.SqlState);
+
+                    return 1;
                 }
 
-                // Paketi ikiye bölerek sağlam kayıtları kurtar, sadece bozuk olanı izole et
-                var mid = batch.Count / 2;
-                await WriteWithRetryAsync(batch.Take(mid).ToList(), cancellationToken);
-                await WriteWithRetryAsync(batch.Skip(mid).ToList(), cancellationToken);
-                return;
+                var middle = batch.Count / 2;
+
+                var firstRejected = await WriteWithRetryAsync(
+                    batch.Take(middle).ToList(),
+                    cancellationToken);
+
+                var secondRejected = await WriteWithRetryAsync(
+                    batch.Skip(middle).ToList(),
+                    cancellationToken);
+
+                return firstRejected + secondRejected;
             }
-            catch (Exception exception) when (exception is not OperationCanceledException)
+            catch (Exception exception)
+                when (exception is not OperationCanceledException)
             {
                 _logger.LogWarning(
-                    "DB yazimi basarisiz; {Delay}sn sonra tekrar denenecek ({Count} kayit bekliyor): {Message}",
+                    exception,
+                    "DB yazimi basarisiz. {Delay} saniye sonra " +
+                    "yeniden denenecek. KayitSayisi={Count}",
                     delay.TotalSeconds,
-                    batch.Count,
-                    exception.Message);
+                    batch.Count);
 
                 await Task.Delay(delay, cancellationToken);
-                delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, 30));
+
+                delay = TimeSpan.FromSeconds(
+                    Math.Min(delay.TotalSeconds * 2, 30));
             }
         }
     }
