@@ -11,6 +11,7 @@ using VehicleTracker.Infrastructure.Options;
 using VehicleTracker.Infrastructure.Persistence;
 using VehicleTracker.Infrastructure.Retention;
 using VehicleTracker.Infrastructure.Services;
+using VehicleTracker.Application.Vehicles;
 
 namespace VehicleTracker.Infrastructure;
 
@@ -80,7 +81,13 @@ public static class DependencyInjection
         services.AddSingleton<IVehicleRetentionService, TimescaleRetentionService>();
         services.AddSingleton<IVehicleLiveStateStore, InMemoryVehicleLiveStateStore>();
         services.AddSingleton<ISystemMetricsService, SystemMetricsService>();
-        services.AddSingleton<IVehicleHistoryService, TimescaleVehicleHistoryService>();
+        services.AddSingleton<VehicleHistoryQueryValidator>();
+        services.AddSingleton(TimeProvider.System);
+
+        services.AddSingleton(provider =>
+        provider.GetRequiredService<IOptions<IngestionOptions>>().Value);
+        services.AddScoped<IVehicleHistoryRepository, EfCoreVehicleHistoryRepository>();
+        services.AddScoped<IVehicleHistoryService, VehicleHistoryService>();
 
 
 
