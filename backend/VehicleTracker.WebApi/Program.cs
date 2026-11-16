@@ -6,12 +6,16 @@ using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.Application.Ingestion;
 using VehicleTracker.Infrastructure;
 using VehicleTracker.Infrastructure.Persistence;
-using VehicleTracker.WebApi.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Infrastructure servisleri
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
+// Controller tabanli HTTP API
+builder.Services.AddControllers();
+
+// Swagger / OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -23,6 +27,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// Izin verilen frontend origin'leri
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
     .Get<string[]>();
@@ -60,6 +65,7 @@ builder.Services.AddCors(options =>
     });
 });
 
+// SignalR
 builder.Services.AddSignalR(options =>
 {
     options.MaximumReceiveMessageSize = 32768;
@@ -75,6 +81,7 @@ builder.Services.AddSingleton<IVehiclePublisher>(sp =>
 
 var app = builder.Build();
 
+// Veritabani baslangic islemleri
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider
@@ -116,8 +123,10 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// CORS
 app.UseCors();
 
+// WebSocket origin kontrolu
 var webSocketOptions = new WebSocketOptions();
 
 foreach (var origin in allowedOrigins)
@@ -127,6 +136,7 @@ foreach (var origin in allowedOrigins)
 
 app.UseWebSockets(webSocketOptions);
 
+// Swagger yalnizca Development veya acikca etkinlestirildiginde
 var swaggerEnabled =
     app.Environment.IsDevelopment() ||
     app.Configuration.GetValue<bool>("Swagger:Enabled");
@@ -151,9 +161,10 @@ if (swaggerEnabled)
         .ExcludeFromDescription();
 }
 
-app.MapVehicleEndpoints();
-app.MapSystemEndpoints();
+// Attribute routing kullanan Controller'lar
+app.MapControllers();
 
+// SignalR Hub
 app.MapHub<VehicleTracker.WebApi.Hubs.VehicleHub>(
     "/hubs/vehicles");
 
