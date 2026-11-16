@@ -1,5 +1,5 @@
+
 services:
-  # 1. PostgreSQL + TimescaleDB Servisi
   timescaledb:
     image: timescale/timescaledb-ha:pg16
     container_name: vehicle-tracker-db
@@ -18,7 +18,6 @@ services:
       timeout: 3s
       retries: 10
 
-  # 2. ASP.NET Core (.NET 8) Web API Servisi
   backend:
     build:
       context: ./backend
@@ -30,13 +29,12 @@ services:
       timescaledb:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5086
-      - ConnectionStrings__DefaultConnection=Host=timescaledb;Port=5432;Database=${POSTGRES_DB:-VehicleTrackerDb};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-password123};Include Error Detail=true
+      - ConnectionStrings__DefaultConnection=Host=timescaledb;Port=5432;Database=${POSTGRES_DB:-VehicleTrackerDb};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-password123}
     ports:
       - "5086:5086"
 
-  # 3. Next.js 15 Standalone Frontend Servisi
   frontend:
     build:
       context: ./frontend
