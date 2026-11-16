@@ -1,4 +1,4 @@
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.WebApi.Services;
 
@@ -75,7 +75,7 @@ public static class WebApiExtensions
         {
             app.UseSwagger(options =>
             {
-                options.SerializeAsV2 = true;
+                options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0;
             });
 
             app.UseSwaggerUI(options =>
