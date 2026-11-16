@@ -40,7 +40,12 @@ public sealed class VehiclesController : ControllerBase
     [ProducesResponseType(
         typeof(PagedResult<VehiclePositionDto>),
         StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<PagedResult<VehiclePositionDto>>> GetHistory(
         [FromRoute] string vehicleId,
         [FromQuery] DateTime? from,
@@ -49,32 +54,25 @@ public sealed class VehiclesController : ControllerBase
         [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var query = new VehicleHistoryQuery(
-                vehicleId,
-                from,
-                to,
-                page,
-                pageSize);
+        var query = new VehicleHistoryQuery(
+            vehicleId,
+            from,
+            to,
+            page,
+            pageSize);
 
-            var result = await _historyService.GetHistoryAsync(
-                query,
-                cancellationToken);
+        var result = await _historyService.GetHistoryAsync(
+            query,
+            cancellationToken);
 
-            var response = new PagedResult<VehiclePositionDto>(
-                result.Items
-                    .Select(VehiclePositionDto.From)
-                    .ToList(),
-                result.TotalCount,
-                result.Page,
-                result.PageSize);
+        var response = new PagedResult<VehiclePositionDto>(
+            result.Items
+                .Select(VehiclePositionDto.From)
+                .ToList(),
+            result.TotalCount,
+            result.Page,
+            result.PageSize);
 
-            return Ok(response);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        return Ok(response);
     }
 }

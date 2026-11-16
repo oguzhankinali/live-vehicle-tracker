@@ -1,5 +1,6 @@
 using Microsoft.OpenApi;
 using VehicleTracker.Application.Common.Interfaces;
+using VehicleTracker.WebApi.ExceptionHandling;
 using VehicleTracker.WebApi.Services;
 
 namespace VehicleTracker.WebApi.Configuration;
@@ -11,6 +12,10 @@ public static class WebApiExtensions
         IConfiguration configuration)
     {
         services.AddControllers();
+
+        // Standart API hata yanitlari
+        services.AddProblemDetails();
+        services.AddExceptionHandler<GlobalExceptionHandler>();
 
         services.AddEndpointsApiExplorer();
 
@@ -54,6 +59,9 @@ public static class WebApiExtensions
     public static WebApplication UseWebApiMiddleware(
         this WebApplication app)
     {
+        // Beklenmeyen API hatalarini merkezi olarak ele al.
+        app.UseExceptionHandler();
+
         var allowedOrigins = GetAllowedOrigins(app.Configuration);
 
         app.UseCors();
@@ -75,7 +83,8 @@ public static class WebApiExtensions
         {
             app.UseSwagger(options =>
             {
-                options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0;
+                options.OpenApiVersion =
+                    OpenApiSpecVersion.OpenApi3_0;
             });
 
             app.UseSwaggerUI(options =>
