@@ -6,12 +6,12 @@ using Microsoft.Extensions.Options;
 using Npgsql;
 using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.Application.Ingestion;
+using VehicleTracker.Application.Vehicles;
 using VehicleTracker.Infrastructure.Ingestion;
 using VehicleTracker.Infrastructure.Options;
 using VehicleTracker.Infrastructure.Persistence;
 using VehicleTracker.Infrastructure.Retention;
 using VehicleTracker.Infrastructure.Services;
-using VehicleTracker.Application.Vehicles;
 
 namespace VehicleTracker.Infrastructure;
 
@@ -21,7 +21,8 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        var connectionString =
+            configuration.GetConnectionString("DefaultConnection");
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -32,13 +33,16 @@ public static class DependencyInjection
         services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
 
         services.AddDbContext<ApplicationDbContext>((provider, options) =>
-            options.UseNpgsql(provider.GetRequiredService<NpgsqlDataSource>()));
+            options.UseNpgsql(
+                provider.GetRequiredService<NpgsqlDataSource>()));
 
         services.AddOptions<EnturOptions>()
             .Bind(configuration.GetSection(EnturOptions.SectionName))
             .Validate(
-                options => Uri.TryCreate(options.FeedUrl, UriKind.Absolute, out var uri)
-                           && uri.Scheme == Uri.UriSchemeHttps,
+                options => Uri.TryCreate(
+                    options.FeedUrl,
+                    UriKind.Absolute,
+                    out var uri) && uri.Scheme == Uri.UriSchemeHttps,
                 "Entur FeedUrl must be a valid HTTPS URL.")
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ClientName),
@@ -61,42 +65,60 @@ public static class DependencyInjection
                 "Ingestion CleanupInterval must be greater than zero.")
             .ValidateOnStart();
 
-        services
-            .AddHttpClient<IVehicleFeedService, EnturVehicleFeedService>((provider, client) =>
-            {
-                var entur = provider.GetRequiredService<IOptions<EnturOptions>>().Value;
-                client.Timeout = TimeSpan.FromSeconds(entur.TimeoutSeconds);
-            })
+        services.AddHttpClient<IVehicleFeedService, EnturVehicleFeedService>(
+                (provider, client) =>
+                {
+                    var entur = provider
+                        .GetRequiredService<IOptions<EnturOptions>>()
+                        .Value;
+
+                    client.Timeout =
+                        TimeSpan.FromSeconds(entur.TimeoutSeconds);
+                })
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
                 AutomaticDecompression =
                     DecompressionMethods.GZip |
                     DecompressionMethods.Deflate |
                     DecompressionMethods.Brotli,
+
                 PooledConnectionLifetime = TimeSpan.FromMinutes(2)
             });
 
-        // Kalıcı veri yazıcı ve retention servisleri
+        // Veritabani ve canli durum servisleri
         services.AddSingleton<IVehiclePositionWriter, NpgsqlVehiclePositionWriter>();
         services.AddSingleton<IVehicleRetentionService, TimescaleRetentionService>();
         services.AddSingleton<IVehicleLiveStateStore, InMemoryVehicleLiveStateStore>();
         services.AddSingleton<ISystemMetricsService, SystemMetricsService>();
+
+        // History use-case ve repository
         services.AddSingleton<VehicleHistoryQueryValidator>();
         services.AddSingleton(TimeProvider.System);
 
         services.AddSingleton(provider =>
-        provider.GetRequiredService<IOptions<IngestionOptions>>().Value);
-        services.AddScoped<IVehicleHistoryRepository, EfCoreVehicleHistoryRepository>();
-        services.AddScoped<IVehicleHistoryService, VehicleHistoryService>();
+            provider.GetRequiredService<IOptions<IngestionOptions>>().Value);
 
+        services.AddScoped<
+            IVehicleHistoryRepository,
+            EfCoreVehicleHistoryRepository>();
 
+        services.AddScoped<
+            IVehicleHistoryService,
+            VehicleHistoryService>();
 
-        // Arka plan işçileri (Ingestion ve Retention)
+        // DB yazma kuyrugu: Application interface, Infrastructure uygulamasi
+        services.AddSingleton<DbWriteQueue>();
+
+        services.AddSingleton<IVehicleWriteQueue>(provider =>
+            provider.GetRequiredService<DbWriteQueue>());
+
+        // Application ingestion orkestrasyonu
+        services.AddSingleton<VehicleIngestionService>();
+
+        // Arka plan isçileri
         services.AddHostedService<DbWriterWorker>();
         services.AddHostedService<VehicleIngestionWorker>();
         services.AddHostedService<VehicleRetentionWorker>();
-        // DB Kuyruğu ve Bağımsız Yazıcı Worker
-        services.AddSingleton<DbWriteQueue>();
 
         return services;
     }
