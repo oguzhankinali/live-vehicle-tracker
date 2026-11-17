@@ -15,8 +15,7 @@ public sealed class VehicleHistoryQueryValidator
         if (string.IsNullOrWhiteSpace(query.VehicleId))
         {
             throw new VehicleValidationException(
-                ValidationErrorCodes.VehicleIdRequired,
-                "Vehicle ID is required.");
+                ValidationErrorCodes.VehicleIdRequired);
         }
 
         if (retention <= TimeSpan.Zero)
@@ -28,15 +27,13 @@ public sealed class VehicleHistoryQueryValidator
         if (query.Page < 1)
         {
             throw new VehicleValidationException(
-                ValidationErrorCodes.InvalidPage,
-                "Page must be greater than zero.");
+                ValidationErrorCodes.InvalidPage);
         }
 
         if (query.PageSize < 1 || query.PageSize > MaxPageSize)
         {
             throw new VehicleValidationException(
-                ValidationErrorCodes.InvalidPageSize,
-                $"Page size must be between 1 and {MaxPageSize}.");
+                ValidationErrorCodes.InvalidPageSize);
         }
 
         var offset = ((long)query.Page - 1) * query.PageSize;
@@ -44,8 +41,7 @@ public sealed class VehicleHistoryQueryValidator
         if (offset > int.MaxValue)
         {
             throw new VehicleValidationException(
-                ValidationErrorCodes.PageOffsetTooLarge,
-                "Requested page is too large.");
+                ValidationErrorCodes.PageOffsetTooLarge);
         }
 
         var minimumTime = nowUtc - retention;
@@ -61,8 +57,7 @@ public sealed class VehicleHistoryQueryValidator
         if (from > nowUtc)
         {
             throw new VehicleValidationException(
-                ValidationErrorCodes.StartTimeInFuture,
-                "The start time cannot be in the future.");
+                ValidationErrorCodes.StartTimeInFuture);
         }
 
         if (from < minimumTime)
@@ -78,8 +73,7 @@ public sealed class VehicleHistoryQueryValidator
         if (from > to)
         {
             throw new VehicleValidationException(
-                ValidationErrorCodes.StartTimeAfterEnd,
-                "The start time cannot be later than the end time.");
+                ValidationErrorCodes.StartTimeAfterEnd);
         }
 
         return query with

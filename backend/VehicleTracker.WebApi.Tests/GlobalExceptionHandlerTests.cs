@@ -86,41 +86,40 @@ public sealed class GlobalExceptionHandlerTests
             json.RootElement.GetRawText());
     }
     [Fact]
-public async Task ValidationException_TurkishRequest_ReturnsLocalizedMessage()
-{
-    using var services = CreateServices();
-    var context = CreateContext(services);
+    public async Task ValidationException_TurkishRequest_ReturnsLocalizedMessage()
+    {
+        using var services = CreateServices();
+        var context = CreateContext(services);
 
-    context.Request.Headers.AcceptLanguage = "tr-TR,tr;q=0.9";
+        context.Request.Headers.AcceptLanguage = "tr-TR,tr;q=0.9";
 
-    var handler = new GlobalExceptionHandler(
-        NullLogger<GlobalExceptionHandler>.Instance);
+        var handler = new GlobalExceptionHandler(
+            NullLogger<GlobalExceptionHandler>.Instance);
 
-    var exception = new VehicleValidationException(
-        ValidationErrorCodes.ReferenceIdRequired,
-        "At least one of routeId or stopId is required.");
+        var exception = new VehicleValidationException(
+            ValidationErrorCodes.ReferenceIdRequired);
 
-    var handled = await handler.TryHandleAsync(
-        context,
-        exception,
-        CancellationToken.None);
+        var handled = await handler.TryHandleAsync(
+            context,
+            exception,
+            CancellationToken.None);
 
-    Assert.True(handled);
-    Assert.Equal(400, context.Response.StatusCode);
+        Assert.True(handled);
+        Assert.Equal(400, context.Response.StatusCode);
 
-    context.Response.Body.Position = 0;
+        context.Response.Body.Position = 0;
 
-    using var json = await JsonDocument.ParseAsync(
-        context.Response.Body);
+        using var json = await JsonDocument.ParseAsync(
+            context.Response.Body);
 
-    Assert.Equal(
-        "REFERENCE_ID_REQUIRED",
-        json.RootElement.GetProperty("code").GetString());
+        Assert.Equal(
+            "REFERENCE_ID_REQUIRED",
+            json.RootElement.GetProperty("code").GetString());
 
-    Assert.Equal(
-        "En az bir hat veya durak kimliği gereklidir.",
-        json.RootElement.GetProperty("detail").GetString());
-}
+        Assert.Equal(
+            "En az bir hat veya durak kimliği gereklidir.",
+            json.RootElement.GetProperty("detail").GetString());
+    }
 
     [Fact]
     public async Task ValidationException_EnglishRequest_PreservesEnglishMessage()
@@ -134,8 +133,7 @@ public async Task ValidationException_TurkishRequest_ReturnsLocalizedMessage()
             NullLogger<GlobalExceptionHandler>.Instance);
 
         var exception = new VehicleValidationException(
-            ValidationErrorCodes.ReferenceIdRequired,
-            "At least one of routeId or stopId is required.");
+            ValidationErrorCodes.ReferenceIdRequired);
 
         var handled = await handler.TryHandleAsync(
             context,

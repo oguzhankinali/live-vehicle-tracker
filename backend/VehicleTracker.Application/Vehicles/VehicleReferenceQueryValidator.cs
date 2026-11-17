@@ -12,8 +12,7 @@ public sealed class VehicleReferenceQueryValidator
             && string.IsNullOrWhiteSpace(stopId))
         {
             throw new VehicleValidationException(
-                ValidationErrorCodes.ReferenceIdRequired,
-                "At least one of routeId or stopId is required.");
+                ValidationErrorCodes.ReferenceIdRequired);
         }
 
         if (routeId is { Length: > MaxIdentifierLength }
@@ -28,8 +27,7 @@ public sealed class VehicleReferenceQueryValidator
                     StringComparison.Ordinal)))
         {
             throw new VehicleValidationException(
-                ValidationErrorCodes.InvalidReferenceId,
-                "Invalid Entur line or quay identifier.");
-        }
+                ValidationErrorCodes.InvalidReferenceId);
+         }
     }
 }

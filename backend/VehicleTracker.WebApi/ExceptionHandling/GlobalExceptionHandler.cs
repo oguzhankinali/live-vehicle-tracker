@@ -41,7 +41,6 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         {
             detail = ValidationErrorMessages.GetMessage(
                 validationException.Code,
-                validationException.Message,
                 httpContext.Request.Headers.AcceptLanguage.ToString());
         }
 

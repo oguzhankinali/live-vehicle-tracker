@@ -6,7 +6,6 @@ public static class ValidationErrorMessages
 {
     public static string GetMessage(
         string code,
-        string defaultMessage,
         string? acceptLanguage)
     {
         var preferredLanguage = acceptLanguage?
@@ -14,41 +13,70 @@ public static class ValidationErrorMessages
             .Split(';')[0]
             .Trim();
 
-        if (preferredLanguage is null ||
-            !preferredLanguage.StartsWith(
+        var isTurkish = preferredLanguage?
+            .StartsWith(
                 "tr",
-                StringComparison.OrdinalIgnoreCase))
+                StringComparison.OrdinalIgnoreCase) == true;
+
+        if (isTurkish)
         {
-            return defaultMessage;
+            return code switch
+            {
+                ValidationErrorCodes.VehicleIdRequired =>
+                    "Araç kimliği zorunludur.",
+
+                ValidationErrorCodes.InvalidPage =>
+                    "Sayfa numarası sıfırdan büyük olmalıdır.",
+
+                ValidationErrorCodes.InvalidPageSize =>
+                    "Sayfa boyutu 1 ile 500 arasında olmalıdır.",
+
+                ValidationErrorCodes.PageOffsetTooLarge =>
+                    "İstenen sayfa numarası çok büyüktür.",
+
+                ValidationErrorCodes.StartTimeInFuture =>
+                    "Başlangıç zamanı gelecekte olamaz.",
+
+                ValidationErrorCodes.StartTimeAfterEnd =>
+                    "Başlangıç zamanı bitiş zamanından sonra olamaz.",
+
+                ValidationErrorCodes.ReferenceIdRequired =>
+                    "En az bir hat veya durak kimliği gereklidir.",
+
+                ValidationErrorCodes.InvalidReferenceId =>
+                    "Geçersiz Entur hat veya durak kimliği.",
+
+                _ => "Geçersiz istek."
+            };
         }
 
         return code switch
         {
             ValidationErrorCodes.VehicleIdRequired =>
-                "Araç kimliği zorunludur.",
+                "Vehicle ID is required.",
 
             ValidationErrorCodes.InvalidPage =>
-                "Sayfa numarası sıfırdan büyük olmalıdır.",
+                "Page must be greater than zero.",
 
             ValidationErrorCodes.InvalidPageSize =>
-                "Sayfa boyutu 1 ile 500 arasında olmalıdır.",
+                "Page size must be between 1 and 500.",
 
             ValidationErrorCodes.PageOffsetTooLarge =>
-                "İstenen sayfa numarası çok büyüktür.",
+                "Requested page is too large.",
 
             ValidationErrorCodes.StartTimeInFuture =>
-                "Başlangıç zamanı gelecekte olamaz.",
+                "The start time cannot be in the future.",
 
             ValidationErrorCodes.StartTimeAfterEnd =>
-                "Başlangıç zamanı bitiş zamanından sonra olamaz.",
+                "The start time cannot be later than the end time.",
 
             ValidationErrorCodes.ReferenceIdRequired =>
-                "En az bir hat veya durak kimliği gereklidir.",
+                "At least one of routeId or stopId is required.",
 
             ValidationErrorCodes.InvalidReferenceId =>
-                "Geçersiz Entur hat veya durak kimliği.",
+                "Invalid Entur line or quay identifier.",
 
-            _ => defaultMessage
+            _ => "Invalid request."
         };
     }
 }

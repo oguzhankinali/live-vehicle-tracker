@@ -19,10 +19,6 @@ public sealed class VehicleValidationExceptionTests
             exception.Code);
 
         Assert.IsAssignableFrom<ArgumentException>(exception);
-
-        Assert.Equal(
-            "Invalid Entur line or quay identifier.",
-            exception.Message);
     }
 
     [Fact]
