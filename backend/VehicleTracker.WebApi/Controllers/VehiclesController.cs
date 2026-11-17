@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using VehicleTracker.Application.Common;
 using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.Application.Common.Models;
 
@@ -9,14 +8,14 @@ namespace VehicleTracker.WebApi.Controllers;
 [Route("api/vehicles")]
 public sealed class VehiclesController : ControllerBase
 {
-    private readonly IVehicleLiveStateStore _liveStore;
+    private readonly IVehicleQueryService _vehicleQueryService;
     private readonly IVehicleHistoryService _historyService;
 
     public VehiclesController(
-        IVehicleLiveStateStore liveStore,
+        IVehicleQueryService vehicleQueryService,
         IVehicleHistoryService historyService)
     {
-        _liveStore = liveStore;
+        _vehicleQueryService = vehicleQueryService;
         _historyService = historyService;
     }
 
@@ -28,12 +27,9 @@ public sealed class VehiclesController : ControllerBase
         [FromQuery] string? routeId,
         [FromQuery] string? search)
     {
-        var filtered = VehicleFilter
-            .Apply(_liveStore.GetAllLatest(), routeId, search)
-            .Select(VehiclePositionDto.From)
-            .ToList();
+        var result = _vehicleQueryService.GetLatest(routeId, search);
 
-        return Ok(filtered);
+        return Ok(result);
     }
 
     [HttpGet("{vehicleId}/history", Name = "GetVehicleHistory")]

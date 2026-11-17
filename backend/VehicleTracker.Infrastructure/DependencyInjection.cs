@@ -109,6 +109,7 @@ public static class DependencyInjection
         services.AddSingleton<VehicleHistoryQueryValidator>();
         services.AddSingleton<VehicleReferenceQueryValidator>();
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IVehicleQueryService, VehicleQueryService>();
 
         services.AddSingleton(provider =>
             provider.GetRequiredService<IOptions<IngestionOptions>>().Value);
