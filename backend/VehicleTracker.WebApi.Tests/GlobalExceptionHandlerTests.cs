@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using VehicleTracker.Application.Common.Validation;
 using VehicleTracker.WebApi.ExceptionHandling;
 using Xunit;
 
@@ -80,6 +81,79 @@ public sealed class GlobalExceptionHandlerTests
         Assert.DoesNotContain(
             "secret-123",
             json.RootElement.GetRawText());
+    }
+    [Fact]
+public async Task ValidationException_TurkishRequest_ReturnsLocalizedMessage()
+{
+    using var services = CreateServices();
+    var context = CreateContext(services);
+
+    context.Request.Headers.AcceptLanguage = "tr-TR,tr;q=0.9";
+
+    var handler = new GlobalExceptionHandler(
+        NullLogger<GlobalExceptionHandler>.Instance);
+
+    var exception = new VehicleValidationException(
+        ValidationErrorCodes.ReferenceIdRequired,
+        "At least one of routeId or stopId is required.");
+
+    var handled = await handler.TryHandleAsync(
+        context,
+        exception,
+        CancellationToken.None);
+
+    Assert.True(handled);
+    Assert.Equal(400, context.Response.StatusCode);
+
+    context.Response.Body.Position = 0;
+
+    using var json = await JsonDocument.ParseAsync(
+        context.Response.Body);
+
+    Assert.Equal(
+        "REFERENCE_ID_REQUIRED",
+        json.RootElement.GetProperty("code").GetString());
+
+    Assert.Equal(
+        "En az bir hat veya durak kimliği gereklidir.",
+        json.RootElement.GetProperty("detail").GetString());
+}
+
+    [Fact]
+    public async Task ValidationException_EnglishRequest_PreservesEnglishMessage()
+    {
+        using var services = CreateServices();
+        var context = CreateContext(services);
+
+        context.Request.Headers.AcceptLanguage = "en-US,en;q=0.9";
+
+        var handler = new GlobalExceptionHandler(
+            NullLogger<GlobalExceptionHandler>.Instance);
+
+        var exception = new VehicleValidationException(
+            ValidationErrorCodes.ReferenceIdRequired,
+            "At least one of routeId or stopId is required.");
+
+        var handled = await handler.TryHandleAsync(
+            context,
+            exception,
+            CancellationToken.None);
+
+        Assert.True(handled);
+        Assert.Equal(400, context.Response.StatusCode);
+
+        context.Response.Body.Position = 0;
+
+        using var json = await JsonDocument.ParseAsync(
+            context.Response.Body);
+
+        Assert.Equal(
+            "REFERENCE_ID_REQUIRED",
+            json.RootElement.GetProperty("code").GetString());
+
+        Assert.Equal(
+            "At least one of routeId or stopId is required.",
+            json.RootElement.GetProperty("detail").GetString());
     }
 
     private static ServiceProvider CreateServices()

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using VehicleTracker.Application.Common.Validation;
 
 namespace VehicleTracker.WebApi.ExceptionHandling;
 
@@ -32,17 +33,32 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 httpContext.Request.Path);
         }
 
+        var detail = isBadRequest
+            ? exception.Message
+            : "An unexpected server error occurred.";
+
+        if (exception is VehicleValidationException validationException)
+        {
+            detail = ValidationErrorMessages.GetMessage(
+                validationException.Code,
+                validationException.Message,
+                httpContext.Request.Headers.AcceptLanguage.ToString());
+        }
+
         var problem = new ProblemDetails
         {
             Status = statusCode,
             Title = isBadRequest
                 ? "Bad Request"
                 : "Internal Server Error",
-            Detail = isBadRequest
-                ? exception.Message
-                : "An unexpected server error occurred.",
+            Detail = detail,
             Instance = httpContext.Request.Path
         };
+
+        if (exception is VehicleValidationException validation)
+        {
+            problem.Extensions["code"] = validation.Code;
+        }
 
         httpContext.Response.StatusCode = statusCode;
 
