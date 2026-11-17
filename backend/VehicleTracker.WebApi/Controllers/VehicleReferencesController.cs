@@ -30,13 +30,15 @@ public sealed class VehicleReferencesController : ControllerBase
     public async Task<ActionResult<VehicleReferenceDto>> Get(
         [FromQuery] string? routeId,
         [FromQuery] string? stopId,
+        [FromQuery] string? tripId,
         CancellationToken cancellationToken)
     {
-        _validator.Validate(routeId, stopId);
+        _validator.Validate(routeId, stopId, tripId);
 
         var result = await _referenceService.GetAsync(
             routeId,
             stopId,
+            tripId,
             cancellationToken);
 
         return Ok(result);

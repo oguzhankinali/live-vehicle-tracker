@@ -41,7 +41,7 @@ public static class ValidationErrorMessages
                     "Başlangıç zamanı bitiş zamanından sonra olamaz.",
 
                 ValidationErrorCodes.ReferenceIdRequired =>
-                    "En az bir hat veya durak kimliği gereklidir.",
+                    "En az bir hat, durak veya sefer kimliği gereklidir.",
 
                 ValidationErrorCodes.InvalidReferenceId =>
                     "Geçersiz Entur hat veya durak kimliği.",
@@ -71,7 +71,7 @@ public static class ValidationErrorMessages
                 "The start time cannot be later than the end time.",
 
             ValidationErrorCodes.ReferenceIdRequired =>
-                "At least one of routeId or stopId is required.",
+                "At least one of routeId, stopId or tripId is required.",
 
             ValidationErrorCodes.InvalidReferenceId =>
                 "Invalid Entur line or quay identifier.",

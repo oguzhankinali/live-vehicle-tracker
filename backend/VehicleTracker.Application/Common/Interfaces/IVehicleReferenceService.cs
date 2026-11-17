@@ -7,5 +7,6 @@ public interface IVehicleReferenceService
     Task<VehicleReferenceDto> GetAsync(
         string? routeId,
         string? stopId,
+        string? tripId,
         CancellationToken cancellationToken = default);
 }

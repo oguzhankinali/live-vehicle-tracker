@@ -51,4 +51,32 @@ public sealed class VehicleReferenceQueryValidatorTests
         Assert.Throws<VehicleValidationException>(
             () => _validator.Validate(routeId, null));
     }
+
+    [Fact]
+    public void TripIdOnly_IsAccepted()
+    {
+        var validator = new VehicleReferenceQueryValidator();
+
+        validator.Validate(
+            null,
+            null,
+            "FIN:ServiceJourney:5726");
+    }
+
+    [Fact]
+    public void InvalidTripId_IsRejected()
+    {
+        var validator = new VehicleReferenceQueryValidator();
+
+        var exception = Assert.Throws<VehicleValidationException>(
+            () => validator.Validate(
+                null,
+                null,
+                "invalid-trip"));
+
+        Assert.Equal(
+            ValidationErrorCodes.InvalidReferenceId,
+            exception.Code);
+    }
+
 }

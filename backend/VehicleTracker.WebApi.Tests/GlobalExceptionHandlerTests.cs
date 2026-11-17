@@ -117,7 +117,7 @@ public sealed class GlobalExceptionHandlerTests
             json.RootElement.GetProperty("code").GetString());
 
         Assert.Equal(
-            "En az bir hat veya durak kimliği gereklidir.",
+            "En az bir hat, durak veya sefer kimliği gereklidir.",
             json.RootElement.GetProperty("detail").GetString());
     }
 
@@ -153,7 +153,7 @@ public sealed class GlobalExceptionHandlerTests
             json.RootElement.GetProperty("code").GetString());
 
         Assert.Equal(
-            "At least one of routeId or stopId is required.",
+            "At least one of routeId, stopId or tripId is required.",
             json.RootElement.GetProperty("detail").GetString());
     }
 

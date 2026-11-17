@@ -38,6 +38,7 @@ export function VehicleDetailCard() {
   } = useVehicleReference(
     vehicle?.routeId,
     vehicle?.stopId,
+    vehicle?.tripId,
     Boolean(selectedVehicleId && vehicle)
   );
 
@@ -90,6 +91,14 @@ export function VehicleDetailCard() {
     reference?.stop?.stopPlaceName ||
     vehicle.stopId ||
     '-';
+
+  const tripDisplay =
+    reference?.trip?.origin && reference?.trip?.destination
+      ? `${reference.trip.origin} → ${reference.trip.destination}`
+      : reference?.trip?.destination ||
+      reference?.trip?.publicCode ||
+      vehicle.tripId ||
+      '-';
 
   const getStatusText = (
     status: VehicleStopStatus | null | undefined
@@ -153,8 +162,8 @@ export function VehicleDetailCard() {
           <div className="flex items-center gap-2">
             <div
               className={`h-3 w-3 rounded-full ${isStale
-                  ? 'bg-amber-500'
-                  : 'bg-blue-500 animate-pulse'
+                ? 'bg-amber-500'
+                : 'bg-blue-500 animate-pulse'
                 }`}
             />
             <h2 className="text-sm font-semibold tracking-tight text-zinc-100">
@@ -196,7 +205,7 @@ export function VehicleDetailCard() {
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-          <div className="p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
+          <div className="col-span-2 p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
             <span className="text-zinc-400 block text-[11px]">
               {t('route')}
             </span>
@@ -208,15 +217,15 @@ export function VehicleDetailCard() {
             </span>
           </div>
 
-          <div className="p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
+          <div className="col-span-2 p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
             <span className="text-zinc-400 block text-[11px]">
               {t('trip')}
             </span>
             <span
-              className="font-semibold text-zinc-200 truncate block mt-0.5"
+              className="font-semibold text-zinc-200 block mt-0.5 whitespace-normal break-words [overflow-wrap:anywhere]"
               title={vehicle.tripId || undefined}
             >
-              {vehicle.tripId || '-'}
+              {tripDisplay}
             </span>
           </div>
 
@@ -278,7 +287,7 @@ export function VehicleDetailCard() {
           )}
 
           {isReferencePending &&
-            Boolean(vehicle.routeId || vehicle.stopId) && (
+            Boolean(vehicle.routeId || vehicle.stopId || vehicle.tripId) && (
               <span className="text-[11px] text-zinc-500 block px-1">
                 {t('referenceLoading')}
               </span>

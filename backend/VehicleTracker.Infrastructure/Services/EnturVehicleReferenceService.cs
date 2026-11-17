@@ -37,6 +37,19 @@ public sealed class EnturVehicleReferenceService : IVehicleReferenceService
         }
         """;
 
+    private const string ServiceJourneyQuery = """
+        query ($id: String!) {
+          serviceJourney(id: $id) {
+            id
+            publicCode
+            passingTimes {
+              quay { name }
+              destinationDisplay { frontText }
+            }
+          }
+        }
+        """;
+
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _cache;
     private readonly ILogger<EnturVehicleReferenceService> _logger;
@@ -54,16 +67,19 @@ public sealed class EnturVehicleReferenceService : IVehicleReferenceService
     public async Task<VehicleReferenceDto> GetAsync(
         string? routeId,
         string? stopId,
+        string? tripId,
         CancellationToken cancellationToken = default)
     {
         var lineTask = GetLineAsync(routeId, cancellationToken);
         var stopTask = GetStopAsync(stopId, cancellationToken);
+        var tripTask = GetTripAsync(tripId, cancellationToken);
 
-        await Task.WhenAll(lineTask, stopTask);
+        await Task.WhenAll(lineTask, stopTask, tripTask);
 
         return new VehicleReferenceDto(
             await lineTask,
-            await stopTask);
+            await stopTask,
+            await tripTask);
     }
 
     private async Task<LineReferenceDto?> GetLineAsync(
@@ -155,6 +171,59 @@ public sealed class EnturVehicleReferenceService : IVehicleReferenceService
         return result;
     }
 
+    private async Task<TripReferenceDto?> GetTripAsync(
+        string? tripId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(tripId))
+            return null;
+
+        var cacheKey = $"entur:trip:{tripId}";
+
+        if (_cache.TryGetValue(
+                cacheKey, out TripReferenceDto? cached))
+        {
+            return cached;
+        }
+
+        var element = await QueryAsync(
+            ServiceJourneyQuery,
+            tripId,
+            "serviceJourney",
+            cancellationToken);
+
+        if (element is null)
+            return null;
+
+        var journey = element.Value;
+        string? origin = null;
+        string? destination = null;
+
+        if (journey.TryGetProperty("passingTimes", out var times)
+            && times.ValueKind == JsonValueKind.Array
+            && times.GetArrayLength() > 0)
+        {
+            var first = times[0];
+            var last = times[times.GetArrayLength() - 1];
+
+            origin = GetNestedString(first, "quay", "name");
+
+            destination =
+                GetNestedString(first, "destinationDisplay", "frontText")
+                ?? GetNestedString(last, "quay", "name");
+        }
+
+        var result = new TripReferenceDto(
+            GetString(journey, "id") ?? tripId,
+            GetString(journey, "publicCode"),
+            origin,
+            destination);
+
+        _cache.Set(cacheKey, result, CacheDuration);
+
+        return result;
+    }
+
     private async Task<JsonElement?> QueryAsync(
         string query,
         string id,
@@ -226,6 +295,17 @@ public sealed class EnturVehicleReferenceService : IVehicleReferenceService
 
             return null;
         }
+    }
+
+    private static string? GetNestedString(
+        JsonElement element,
+        string objectName,
+        string propertyName)
+    {
+        return element.TryGetProperty(objectName, out var nested)
+            && nested.ValueKind == JsonValueKind.Object
+            ? GetString(nested, propertyName)
+            : null;
     }
 
     private static string? GetString(

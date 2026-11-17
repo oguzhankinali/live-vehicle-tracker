@@ -6,10 +6,14 @@ public sealed class VehicleReferenceQueryValidator
 {
     private const int MaxIdentifierLength = 160;
 
-    public void Validate(string? routeId, string? stopId)
+    public void Validate(
+        string? routeId,
+        string? stopId,
+        string? tripId = null)
     {
         if (string.IsNullOrWhiteSpace(routeId)
-            && string.IsNullOrWhiteSpace(stopId))
+            && string.IsNullOrWhiteSpace(stopId)
+            && string.IsNullOrWhiteSpace(tripId))
         {
             throw new VehicleValidationException(
                 ValidationErrorCodes.ReferenceIdRequired);
@@ -17,6 +21,7 @@ public sealed class VehicleReferenceQueryValidator
 
         if (routeId is { Length: > MaxIdentifierLength }
             || stopId is { Length: > MaxIdentifierLength }
+            || tripId is { Length: > MaxIdentifierLength }
             || (routeId is not null
                 && !routeId.Contains(
                     ":Line:",
@@ -24,10 +29,14 @@ public sealed class VehicleReferenceQueryValidator
             || (stopId is not null
                 && !stopId.StartsWith(
                     "NSR:Quay:",
+                    StringComparison.Ordinal))
+            || (tripId is not null
+                && !tripId.Contains(
+                    ":ServiceJourney:",
                     StringComparison.Ordinal)))
         {
             throw new VehicleValidationException(
                 ValidationErrorCodes.InvalidReferenceId);
-         }
+        }
     }
 }
