@@ -1,51 +1,73 @@
 import { Suspense } from 'react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+
 import { LiveMap } from '@/features/map/components/LiveMap';
 import { ConnectionBadge } from '@/features/vehicles/components/ConnectionBadge';
 import { VehicleFilterBar } from '@/features/vehicles/components/VehicleFilterBar';
+import { VehicleFilterStats } from '@/features/vehicles/components/VehicleFilterStats';
 import { VehicleDetailCard } from '@/features/vehicles/components/VehicleDetailCard';
 import { SystemStatusButton } from '@/features/system/components/SystemStatusButton';
 import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher';
 
 export default async function HomePage({
-  params
+  params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
+
   const t = await getTranslations('Index');
 
   return (
-    // Şartname 4.4: Mobil tarayıcı taşmalarını önlemek için h-dvh standardı
-    <main className="relative w-full h-dvh overflow-hidden bg-background text-foreground">
-      {/* Canlı Harita */}
+    <main className="relative h-dvh w-full overflow-hidden bg-background text-foreground">
       <LiveMap />
 
-      {/* Sol üstte operasyon paneli (375px mobil ekranlara tam sığacak responsive yapı) */}
-      <header className="absolute top-3 left-3 right-3 sm:right-auto z-10 flex flex-wrap items-center gap-2 sm:gap-3 bg-zinc-900/90 backdrop-blur-md p-2.5 sm:px-4 sm:py-2.5 rounded-xl shadow-xl border border-zinc-800 transition-all max-w-[calc(100vw-1.5rem)]">
-        <h1 className="text-xs sm:text-sm font-semibold tracking-tight text-zinc-100">
-          {t('title')}
-        </h1>
+      <header className="absolute inset-x-3 top-3 z-10 flex max-w-[calc(100vw-1.5rem)] flex-col gap-2.5 rounded-xl border border-zinc-800 bg-zinc-900/90 p-3 shadow-xl backdrop-blur-md sm:inset-x-auto sm:left-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:px-4 sm:py-2.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+          <h1 className="text-xs font-semibold tracking-tight text-zinc-100 sm:text-sm">
+            {t('title')}
+          </h1>
 
-        <div className="h-3.5 w-[1px] bg-zinc-800" />
-        <ConnectionBadge />
+          <div
+            aria-hidden="true"
+            className="hidden h-3.5 w-px bg-zinc-700 sm:block"
+          />
 
-        <div className="h-3.5 w-[1px] bg-zinc-800 hidden md:block" />
-        <Suspense fallback={<div className="h-7 w-28 sm:w-44 bg-zinc-800/50 rounded-lg animate-pulse" />}>
-          <VehicleFilterBar />
-        </Suspense>
+          <ConnectionBadge />
+        </div>
 
-        <div className="h-3.5 w-[1px] bg-zinc-800" />
-        <SystemStatusButton />
+        <div className="w-full min-w-0 sm:w-auto">
+          <Suspense
+            fallback={
+              <div className="h-9 w-full animate-pulse rounded-lg bg-zinc-800/50 sm:w-96" />
+            }
+          >
+            <VehicleFilterBar />
+          </Suspense>
+        </div>
 
-        <div className="h-3.5 w-[1px] bg-zinc-800" />
-        <Suspense fallback={<div className="h-7 w-8 bg-zinc-800/50 rounded-lg animate-pulse" />}>
-          <LanguageSwitcher />
-        </Suspense>
+        <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start sm:gap-3">
+          <div className="min-w-0 shrink-0">
+            <SystemStatusButton />
+          </div>
+
+          <div className="min-w-0 sm:hidden">
+            <VehicleFilterStats />
+          </div>
+
+          <div className="shrink-0">
+            <Suspense
+              fallback={
+                <div className="h-7 w-8 animate-pulse rounded-lg bg-zinc-800/50" />
+              }
+            >
+              <LanguageSwitcher />
+            </Suspense>
+          </div>
+        </div>
       </header>
 
-      {/* Canlı araç detay kartı (Mobilde bottom sheet, masaüstünde sağ kart) */}
       <VehicleDetailCard />
     </main>
   );
