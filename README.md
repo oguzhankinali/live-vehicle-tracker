@@ -74,7 +74,7 @@ docker compose down
 ## Mimari
 
 ```mermaid
-flowchart LR
+flowchart TD
     Entur["Entur GTFS-RT<br/>Vehicle Positions"] --> Feed["HTTP / Protobuf<br/>Feed Service"]
     Feed --> Worker["Ingestion Worker<br/>zamanlayıcı"]
     Worker --> Ingestion["Application<br/>VehicleIngestionService"]
