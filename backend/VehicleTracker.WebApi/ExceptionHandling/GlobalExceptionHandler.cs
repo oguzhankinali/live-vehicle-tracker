@@ -19,7 +19,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        var isBadRequest = exception is ArgumentException;
+        var isBadRequest = exception is VehicleValidationException;
 
         var statusCode = isBadRequest
             ? StatusCodes.Status400BadRequest

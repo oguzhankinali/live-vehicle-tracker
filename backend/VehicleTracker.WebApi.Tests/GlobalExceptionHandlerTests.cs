@@ -11,7 +11,7 @@ namespace VehicleTracker.WebApi.Tests;
 public sealed class GlobalExceptionHandlerTests
 {
     [Fact]
-    public async Task ArgumentException_Returns400WithUsefulMessage()
+    public async Task UnexpectedArgumentException_Returns500WithoutSensitiveDetails()
     {
         using var services = CreateServices();
         var context = CreateContext(services);
@@ -21,11 +21,13 @@ public sealed class GlobalExceptionHandlerTests
 
         var handled = await handler.TryHandleAsync(
             context,
-            new ArgumentException("Invalid page number."),
+            new ArgumentException(
+                "Internal implementation detail: secret-123"),
             CancellationToken.None);
 
         Assert.True(handled);
-        Assert.Equal(400, context.Response.StatusCode);
+        Assert.Equal(500, context.Response.StatusCode);
+
         Assert.StartsWith(
             "application/problem+json",
             context.Response.ContentType);
@@ -36,13 +38,14 @@ public sealed class GlobalExceptionHandlerTests
             context.Response.Body);
 
         Assert.Equal(
-            400,
-            json.RootElement.GetProperty("status").GetInt32());
-
-        Assert.Equal(
-            "Invalid page number.",
+            "An unexpected server error occurred.",
             json.RootElement.GetProperty("detail").GetString());
+
+        Assert.DoesNotContain(
+            "secret-123",
+            json.RootElement.GetRawText());
     }
+
 
     [Fact]
     public async Task UnexpectedException_Returns500WithoutSensitiveDetails()
