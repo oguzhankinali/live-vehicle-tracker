@@ -1,4 +1,5 @@
 using VehicleTracker.Application.Common.Models;
+using VehicleTracker.Application.Common.Validation;
 
 namespace VehicleTracker.Application.Vehicles;
 
@@ -13,7 +14,9 @@ public sealed class VehicleHistoryQueryValidator
     {
         if (string.IsNullOrWhiteSpace(query.VehicleId))
         {
-            throw new ArgumentException("Vehicle ID is required.");
+            throw new VehicleValidationException(
+                ValidationErrorCodes.VehicleIdRequired,
+                "Vehicle ID is required.");
         }
 
         if (retention <= TimeSpan.Zero)
@@ -24,12 +27,15 @@ public sealed class VehicleHistoryQueryValidator
 
         if (query.Page < 1)
         {
-            throw new ArgumentException("Page must be greater than zero.");
+            throw new VehicleValidationException(
+                ValidationErrorCodes.InvalidPage,
+                "Page must be greater than zero.");
         }
 
         if (query.PageSize < 1 || query.PageSize > MaxPageSize)
         {
-            throw new ArgumentException(
+            throw new VehicleValidationException(
+                ValidationErrorCodes.InvalidPageSize,
                 $"Page size must be between 1 and {MaxPageSize}.");
         }
 
@@ -37,7 +43,8 @@ public sealed class VehicleHistoryQueryValidator
 
         if (offset > int.MaxValue)
         {
-            throw new ArgumentException(
+            throw new VehicleValidationException(
+                ValidationErrorCodes.PageOffsetTooLarge,
                 "Requested page is too large.");
         }
 
@@ -53,7 +60,8 @@ public sealed class VehicleHistoryQueryValidator
 
         if (from > nowUtc)
         {
-            throw new ArgumentException(
+            throw new VehicleValidationException(
+                ValidationErrorCodes.StartTimeInFuture,
                 "The start time cannot be in the future.");
         }
 
@@ -69,7 +77,8 @@ public sealed class VehicleHistoryQueryValidator
 
         if (from > to)
         {
-            throw new ArgumentException(
+            throw new VehicleValidationException(
+                ValidationErrorCodes.StartTimeAfterEnd,
                 "The start time cannot be later than the end time.");
         }
 

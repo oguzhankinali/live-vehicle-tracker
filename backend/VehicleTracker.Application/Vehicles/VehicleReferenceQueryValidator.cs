@@ -1,3 +1,5 @@
+using VehicleTracker.Application.Common.Validation;
+
 namespace VehicleTracker.Application.Vehicles;
 
 public sealed class VehicleReferenceQueryValidator
@@ -9,7 +11,8 @@ public sealed class VehicleReferenceQueryValidator
         if (string.IsNullOrWhiteSpace(routeId)
             && string.IsNullOrWhiteSpace(stopId))
         {
-            throw new ArgumentException(
+            throw new VehicleValidationException(
+                ValidationErrorCodes.ReferenceIdRequired,
                 "At least one of routeId or stopId is required.");
         }
 
@@ -24,7 +27,8 @@ public sealed class VehicleReferenceQueryValidator
                     "NSR:Quay:",
                     StringComparison.Ordinal)))
         {
-            throw new ArgumentException(
+            throw new VehicleValidationException(
+                ValidationErrorCodes.InvalidReferenceId,
                 "Invalid Entur line or quay identifier.");
         }
     }

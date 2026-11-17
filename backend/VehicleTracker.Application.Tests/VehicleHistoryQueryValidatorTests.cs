@@ -1,5 +1,6 @@
 using VehicleTracker.Application.Common.Models;
 using VehicleTracker.Application.Vehicles;
+using VehicleTracker.Application.Common.Validation;
 using Xunit;
 
 namespace VehicleTracker.Application.Tests;
@@ -59,7 +60,7 @@ public sealed class VehicleHistoryQueryValidatorTests
             "vehicle-123",
             FromUtc: NowUtc.AddMinutes(10));
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<VehicleValidationException>(() =>
             _validator.ValidateAndNormalize(
                 query, Retention, NowUtc));
     }
@@ -72,7 +73,7 @@ public sealed class VehicleHistoryQueryValidatorTests
             FromUtc: NowUtc.AddMinutes(-10),
             ToUtc: NowUtc.AddMinutes(-30));
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<VehicleValidationException>(() =>
             _validator.ValidateAndNormalize(
                 query, Retention, NowUtc));
     }
@@ -86,7 +87,7 @@ public sealed class VehicleHistoryQueryValidatorTests
             "vehicle-123",
             Page: page);
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<VehicleValidationException>(() =>
             _validator.ValidateAndNormalize(
                 query, Retention, NowUtc));
     }
@@ -101,7 +102,7 @@ public sealed class VehicleHistoryQueryValidatorTests
             "vehicle-123",
             PageSize: pageSize);
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<VehicleValidationException>(() =>
             _validator.ValidateAndNormalize(
                 query, Retention, NowUtc));
     }
@@ -114,7 +115,7 @@ public sealed class VehicleHistoryQueryValidatorTests
             Page: int.MaxValue,
             PageSize: 500);
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<VehicleValidationException>(() =>
             _validator.ValidateAndNormalize(
                 query, Retention, NowUtc));
     }
@@ -142,7 +143,7 @@ public sealed class VehicleHistoryQueryValidatorTests
     {
         var query = new VehicleHistoryQuery(" ");
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<VehicleValidationException>(() =>
             _validator.ValidateAndNormalize(
                 query, Retention, NowUtc));
     }

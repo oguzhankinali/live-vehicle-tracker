@@ -1,4 +1,5 @@
 using VehicleTracker.Application.Vehicles;
+using VehicleTracker.Application.Common.Validation;
 using Xunit;
 
 namespace VehicleTracker.Application.Tests;
@@ -26,7 +27,7 @@ public sealed class VehicleReferenceQueryValidatorTests
         string? routeId,
         string? stopId)
     {
-        Assert.Throws<ArgumentException>(
+        Assert.Throws<VehicleValidationException>(
             () => _validator.Validate(routeId, stopId));
     }
 
@@ -38,7 +39,7 @@ public sealed class VehicleReferenceQueryValidatorTests
         string? routeId,
         string? stopId)
     {
-        Assert.Throws<ArgumentException>(
+        Assert.Throws<VehicleValidationException>(
             () => _validator.Validate(routeId, stopId));
     }
 
@@ -47,7 +48,7 @@ public sealed class VehicleReferenceQueryValidatorTests
     {
         var routeId = "VKT:Line:" + new string('a', 160);
 
-        Assert.Throws<ArgumentException>(
+        Assert.Throws<VehicleValidationException>(
             () => _validator.Validate(routeId, null));
     }
 }
