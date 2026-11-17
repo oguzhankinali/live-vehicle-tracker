@@ -8,28 +8,29 @@ public sealed class VehicleHub : Hub
 {
     private readonly IVehicleLiveStateStore _liveStore;
     private readonly ISystemMetricsService _metrics;
-    private readonly SignalRVehiclePublisher _publisher;
+    private readonly IVehicleClientRegistry _clientRegistry;
 
     public VehicleHub(
-        IVehicleLiveStateStore liveStore, 
+        IVehicleLiveStateStore liveStore,
         ISystemMetricsService metrics,
-        SignalRVehiclePublisher publisher)
+        IVehicleClientRegistry clientRegistry)
     {
         _liveStore = liveStore;
         _metrics = metrics;
-        _publisher = publisher;
+        _clientRegistry = clientRegistry;
     }
 
     public override async Task OnConnectedAsync()
     {
         _metrics.IncrementConnectedClients();
-        
-        // İstemci için özel kuyruk oluştur
-        _publisher.AddClient(Context.ConnectionId);
 
-        // İlk Snapshot'ı gönder
+        _clientRegistry.AddClient(Context.ConnectionId);
+
         var snapshot = _liveStore.GetAllLatest();
-        await Clients.Caller.SendAsync("ReceiveSnapshot", snapshot);
+
+        await Clients.Caller.SendAsync(
+            VehicleHubMethods.ReceiveSnapshot,
+            snapshot);
 
         await base.OnConnectedAsync();
     }
@@ -37,10 +38,9 @@ public sealed class VehicleHub : Hub
     public override Task OnDisconnectedAsync(Exception? exception)
     {
         _metrics.DecrementConnectedClients();
-        
-        // İstemci koptuğunda kuyruğunu temizle
-        _publisher.RemoveClient(Context.ConnectionId);
-        
+
+        _clientRegistry.RemoveClient(Context.ConnectionId);
+
         return base.OnDisconnectedAsync(exception);
     }
 }

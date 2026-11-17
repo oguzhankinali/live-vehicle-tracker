@@ -3,18 +3,6 @@ using VehicleTracker.Domain.Entities;
 
 namespace VehicleTracker.Application.Ingestion;
 
-public enum SnapshotDisposition
-{
-    Processed,
-    DuplicatePayload
-}
-
-public sealed record DetectionResult(
-    SnapshotDisposition Disposition,
-    IReadOnlyList<VehiclePositionRecord> Accepted,
-    int SkippedOutsideRetention,
-    int SkippedNotNewer);
-
 public sealed class SnapshotChangeDetector
 {
     private static readonly IReadOnlyList<VehiclePositionRecord> NoRecords =
@@ -27,7 +15,11 @@ public sealed class SnapshotChangeDetector
     {
         if (feed.PayloadSha256 == _lastPayloadSha256)
         {
-            return new DetectionResult(SnapshotDisposition.DuplicatePayload, NoRecords, 0, 0);
+            return new DetectionResult(
+                SnapshotDisposition.DuplicatePayload,
+                NoRecords,
+                0,
+                0);
         }
 
         var threshold = feed.ReceivedAtUtc - retention;
@@ -43,7 +35,9 @@ public sealed class SnapshotChangeDetector
                 continue;
             }
 
-            if (_lastObservedByEntity.TryGetValue(record.FeedEntityId, out var lastObserved)
+            if (_lastObservedByEntity.TryGetValue(
+                    record.FeedEntityId,
+                    out var lastObserved)
                 && record.Timestamp <= lastObserved)
             {
                 skippedNotNewer++;
@@ -55,9 +49,6 @@ public sealed class SnapshotChangeDetector
 
         Prune(threshold);
 
-        //!! DİKKAT: _lastPayloadSha256 atamasını buradan kaldırdık. 
-        // Sadece DB'ye yazım başarılı olursa Acknowledge içinde güncellenecek.
-
         return new DetectionResult(
             SnapshotDisposition.Processed,
             candidates,
@@ -65,12 +56,15 @@ public sealed class SnapshotChangeDetector
             skippedNotNewer);
     }
 
-    // Geleceğe Not: DB yazımı başarılı olduktan sonra hem entity zamanlarını hem de SHA'yı onaylıyoruz.
-    public void Acknowledge(IReadOnlyList<VehiclePositionRecord> processedRecords, string payloadSha256)
+    public void Acknowledge(
+        IReadOnlyList<VehiclePositionRecord> processedRecords,
+        string payloadSha256)
     {
         foreach (var record in processedRecords)
         {
-            if (!_lastObservedByEntity.TryGetValue(record.FeedEntityId, out var current)
+            if (!_lastObservedByEntity.TryGetValue(
+                    record.FeedEntityId,
+                    out var current)
                 || record.Timestamp > current)
             {
                 _lastObservedByEntity[record.FeedEntityId] = record.Timestamp;

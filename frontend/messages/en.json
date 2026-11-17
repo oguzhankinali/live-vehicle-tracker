@@ -12,8 +12,12 @@
   "Filter": {
     "searchPlaceholder": "Search vehicle (e.g. 257253)...",
     "routePlaceholder": "Search route (e.g. Line:2)...",
+    "vehicleSearch": "Search Vehicle",
+    "routeSearch": "Search Route",
     "clear": "Clear",
-    "stats": "{filtered} / {total} vehicles"
+    "stats": "{filtered} / {total} vehicles",
+    "totalStats": "{total} vehicles",
+    "filteredStats": "{filtered} / {total} vehicles"
   },
   "VehicleDetail": {
     "title": "Vehicle Details",
@@ -44,7 +48,14 @@
     "occNotBoardable": "Not Boardable",
     "close": "Close",
     "historyButton": "Position History & Trail",
-    "staleWarning": "Last signal received {min}m ago (Vehicle may be stationary)"
+    "staleWarning": "Last signal received {min}m ago (Vehicle may be stationary)",
+    "lineName": "Line name",
+    "operator": "Operator",
+    "stop": "Stop",
+    "referenceLoading": "Loading line and stop information...",
+    "approachingStop": "Approaching stop",
+    "currentStop": "Current stop",
+    "nextStop": "Next stop"
   },
   "History": {
     "title": "Position History & Trail",

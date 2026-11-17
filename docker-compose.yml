@@ -1,15 +1,15 @@
+
 services:
-  # 1. PostgreSQL + TimescaleDB Servisi
   timescaledb:
     image: timescale/timescaledb-ha:pg16
     container_name: vehicle-tracker-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-VehicleTrackerDb}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - timescale_data:/home/postgres/pgdata/data
     healthcheck:
@@ -18,25 +18,23 @@ services:
       timeout: 3s
       retries: 10
 
-  # 2. ASP.NET Core (.NET 8) Web API Servisi
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: vehicle-tracker-backend
     restart: unless-stopped
-    stop_grace_period: 30s
+    stop_grace_period: 50s
     depends_on:
       timescaledb:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5086
-      - ConnectionStrings__DefaultConnection=Host=timescaledb;Port=5432;Database=${POSTGRES_DB:-VehicleTrackerDb};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-password123};Include Error Detail=true
+      - ConnectionStrings__DefaultConnection=Host=timescaledb;Port=5432;Database=${POSTGRES_DB:-VehicleTrackerDb};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
       - "5086:5086"
 
-  # 3. Next.js 15 Standalone Frontend Servisi
   frontend:
     build:
       context: ./frontend

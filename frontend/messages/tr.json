@@ -12,8 +12,12 @@
   "Filter": {
     "searchPlaceholder": "Araç no ara (örn: 257253)...",
     "routePlaceholder": "Hat ara (örn: Line:2)...",
+    "vehicleSearch": "Araç No ile Ara",
+    "routeSearch": "Hat ile Ara",
     "clear": "Temizle",
-    "stats": "{filtered} / {total} araç"
+    "stats": "{filtered} / {total} araç",
+    "totalStats": "{total} araç",
+    "filteredStats": "{filtered} / {total} araç"
   },
   "VehicleDetail": {
     "title": "Araç Detayı",
@@ -44,7 +48,14 @@
     "occNotBoardable": "Binişe Kapalı",
     "close": "Kapat",
     "historyButton": "Konum Geçmişi ve Rota",
-    "staleWarning": "Son sinyal {min} dk önce alındı (Araç durağan olabilir)"
+    "staleWarning": "Son sinyal {min} dk önce alındı (Araç durağan olabilir)",
+    "lineName": "Hat adı",
+    "operator": "Operatör",
+    "stop": "Durak",
+    "referenceLoading": "Hat ve durak bilgileri yükleniyor...",
+    "approachingStop": "Yaklaşılan durak",
+    "currentStop": "Bulunulan durak",
+    "nextStop": "Sonraki durak"
   },
   "History": {
     "title": "Konum Geçmişi ve Rota",

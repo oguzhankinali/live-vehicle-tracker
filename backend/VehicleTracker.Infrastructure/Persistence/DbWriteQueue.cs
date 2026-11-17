@@ -1,27 +1,45 @@
 using System.Threading.Channels;
+using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.Domain.Entities;
 
 namespace VehicleTracker.Infrastructure.Persistence;
 
-public sealed class DbWriteQueue
+public sealed class DbWriteQueue :
+    IVehicleWriteQueue,
+    IVehicleWriteQueueReader
 {
+    private const int DefaultCapacity = 1000;
+
     private readonly Channel<IReadOnlyList<VehiclePositionRecord>> _channel;
 
-    public DbWriteQueue(int capacity = 1000)
+    public DbWriteQueue(int capacity = DefaultCapacity)
     {
         _channel = Channel.CreateBounded<IReadOnlyList<VehiclePositionRecord>>(
             new BoundedChannelOptions(capacity)
             {
-                FullMode = BoundedChannelFullMode.Wait, // Kuyruk dolarsa Ingestion'ı beklet
+                FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = true,
                 SingleWriter = false
             });
     }
-    public void Complete() => _channel.Writer.TryComplete();
 
-    public ValueTask EnqueueAsync(IReadOnlyList<VehiclePositionRecord> batch, CancellationToken ct = default) =>
-        _channel.Writer.WriteAsync(batch, ct);
+    public int PendingBatchCount => _channel.Reader.Count;
 
-    public IAsyncEnumerable<IReadOnlyList<VehiclePositionRecord>> ReadAllAsync(CancellationToken ct = default) =>
-        _channel.Reader.ReadAllAsync(ct);
+    public void Complete()
+    {
+        _channel.Writer.TryComplete();
+    }
+
+    public ValueTask EnqueueAsync(
+        IReadOnlyList<VehiclePositionRecord> batch,
+        CancellationToken cancellationToken = default)
+    {
+        return _channel.Writer.WriteAsync(batch, cancellationToken);
+    }
+
+    public IAsyncEnumerable<IReadOnlyList<VehiclePositionRecord>> ReadAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return _channel.Reader.ReadAllAsync(cancellationToken);
+    }
 }
