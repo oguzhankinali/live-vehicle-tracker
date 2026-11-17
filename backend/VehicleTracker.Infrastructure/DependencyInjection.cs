@@ -85,6 +85,20 @@ public static class DependencyInjection
                 PooledConnectionLifetime = TimeSpan.FromMinutes(2)
             });
 
+            services.AddMemoryCache();
+
+            services.AddHttpClient<IVehicleReferenceService,EnturVehicleReferenceService>((provider, client) =>
+            {
+                var entur = provider
+                    .GetRequiredService<IOptions<EnturOptions>>()
+                    .Value;
+
+                client.Timeout = TimeSpan.FromSeconds(8);
+
+                client.DefaultRequestHeaders.TryAddWithoutValidation(
+                    "ET-Client-Name",
+                    entur.ClientName);
+            });
         // Veritabani ve canli durum servisleri
         services.AddSingleton<IVehiclePositionWriter, NpgsqlVehiclePositionWriter>();
         services.AddSingleton<IVehicleRetentionService, TimescaleRetentionService>();

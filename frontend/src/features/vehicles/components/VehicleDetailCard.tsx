@@ -5,33 +5,56 @@ import { useTranslations } from 'next-intl';
 import { AlertCircle, MapPin, X } from 'lucide-react';
 import { useVehicleStore } from '../store/useVehicleStore';
 import { VehicleStopStatus, OccupancyStatus } from '../types/vehicle';
+import { useVehicleReference } from '../api/getVehicleReference';
 import { VEHICLE_STALE_WARN_MS } from '../constants/timing';
 import { VehicleHistoryModal } from './VehicleHistoryModal';
 
 export function VehicleDetailCard() {
   const t = useTranslations('VehicleDetail');
-  
-  const [historyVehicleId, setHistoryVehicleId] = useState<string | null>(null);
+
+  const [historyVehicleId, setHistoryVehicleId] =
+    useState<string | null>(null);
   const [now, setNow] = useState<number>(Date.now());
 
-  const selectedVehicleId = useVehicleStore((state) => state.selectedVehicleId);
-  const setSelectedVehicleId = useVehicleStore((state) => state.setSelectedVehicleId);
-  const clearHistoryTrail = useVehicleStore((state) => state.clearHistoryTrail);
-
-  const vehicle = useVehicleStore((state) =>
-    selectedVehicleId ? state.vehicles[selectedVehicleId] : null
+  const selectedVehicleId = useVehicleStore(
+    (state) => state.selectedVehicleId
+  );
+  const setSelectedVehicleId = useVehicleStore(
+    (state) => state.setSelectedVehicleId
+  );
+  const clearHistoryTrail = useVehicleStore(
+    (state) => state.clearHistoryTrail
   );
 
-  // Araç seçimi değiştiğinde veya seçim kalktığında geçmiş modal ID'sini sıfırla (State sızıntısını önler)
+  const vehicle = useVehicleStore((state) =>
+    selectedVehicleId
+      ? state.vehicles[selectedVehicleId]
+      : null
+  );
+
+  const {
+    data: reference,
+    isPending: isReferencePending,
+  } = useVehicleReference(
+    vehicle?.routeId,
+    vehicle?.stopId,
+    Boolean(selectedVehicleId && vehicle)
+  );
+
   useEffect(() => {
     setHistoryVehicleId(null);
   }, [selectedVehicleId]);
 
-  // Canlı saniye sayacı: Yalnızca seçili araç varken çalışır; anında Date.now() ile başlar
   useEffect(() => {
     if (!selectedVehicleId) return;
+
     setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+
+    const timer = setInterval(
+      () => setNow(Date.now()),
+      1000
+    );
+
     return () => clearInterval(timer);
   }, [selectedVehicleId]);
 
@@ -41,16 +64,36 @@ export function VehicleDetailCard() {
   const diffMs = Math.max(0, now - vehicleTimestamp);
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
-
-  // Merkezi sabitten (10 dakika) okunan bayatlık eşiği
   const isStale = diffMs >= VEHICLE_STALE_WARN_MS;
 
   const speedDisplay =
-    vehicle.speed != null ? `${Math.round(vehicle.speed * 3.6)} ${t('unitKmh')}` : '-';
-  const bearingDisplay =
-    vehicle.bearing != null ? `${Math.round(vehicle.bearing)}${t('unitDegree')}` : '-';
+    vehicle.speed != null
+      ? `${Math.round(vehicle.speed * 3.6)} ${t('unitKmh')}`
+      : '-';
 
-  const getStatusText = (status: VehicleStopStatus | null | undefined) => {
+  const bearingDisplay =
+    vehicle.bearing != null
+      ? `${Math.round(vehicle.bearing)}${t('unitDegree')}`
+      : '-';
+
+  // Entur isimleri gelmezse mevcut teknik kimlikleri koru.
+  const routeDisplay =
+    reference?.line?.publicCode ||
+    vehicle.routeId ||
+    '-';
+
+  const routeName = reference?.line?.name;
+  const operatorName = reference?.line?.operatorName;
+
+  const stopDisplay =
+    reference?.stop?.name ||
+    reference?.stop?.stopPlaceName ||
+    vehicle.stopId ||
+    '-';
+
+  const getStatusText = (
+    status: VehicleStopStatus | null | undefined
+  ) => {
     switch (status) {
       case VehicleStopStatus.IncomingAt:
         return t('statusIncoming');
@@ -63,7 +106,9 @@ export function VehicleDetailCard() {
     }
   };
 
-  const getOccupancyText = (occ: OccupancyStatus | null | undefined) => {
+  const getOccupancyText = (
+    occ: OccupancyStatus | null | undefined
+  ) => {
     switch (occ) {
       case OccupancyStatus.Empty:
         return t('occEmpty');
@@ -88,7 +133,10 @@ export function VehicleDetailCard() {
   };
 
   const getRelativeTimeString = () => {
-    if (diffSec < 60) return t('secondsAgo', { sec: diffSec });
+    if (diffSec < 60) {
+      return t('secondsAgo', { sec: diffSec });
+    }
+
     return t('minutesAgo', { min: diffMin });
   };
 
@@ -98,17 +146,22 @@ export function VehicleDetailCard() {
     setSelectedVehicleId(null);
   };
 
-      return (
+  return (
     <>
-      {/* Şartname 4.4: 375px mobilde alt çekmece (bottom sheet), masaüstünde sağ kart */}
       <div className="fixed inset-x-2 bottom-2 sm:inset-auto sm:top-20 sm:right-4 z-20 w-auto sm:w-80 md:w-96 max-h-[80dvh] overflow-y-auto bg-zinc-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-zinc-800 p-4 sm:p-5 transition-all animate-in fade-in slide-in-from-bottom-4 sm:slide-in-from-right-4 duration-300">
         <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
           <div className="flex items-center gap-2">
-            <div className={`h-3 w-3 rounded-full ${isStale ? 'bg-amber-500' : 'bg-blue-500 animate-pulse'}`} />
+            <div
+              className={`h-3 w-3 rounded-full ${isStale
+                  ? 'bg-amber-500'
+                  : 'bg-blue-500 animate-pulse'
+                }`}
+            />
             <h2 className="text-sm font-semibold tracking-tight text-zinc-100">
               {t('title')}
             </h2>
           </div>
+
           <button
             onClick={handleCloseDetail}
             className="text-zinc-400 hover:text-zinc-200 p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
@@ -118,7 +171,6 @@ export function VehicleDetailCard() {
           </button>
         </div>
 
-        {/* Eski veri / Sinyal Yok Uyarı Rozeti */}
         {isStale && (
           <div className="mt-3 flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -135,6 +187,7 @@ export function VehicleDetailCard() {
               {vehicle.vehicleId}
             </span>
           </div>
+
           {vehicle.vehicleLabel && (
             <span className="px-2.5 py-1 text-xs font-semibold bg-blue-950 text-blue-300 rounded-md">
               {vehicle.vehicleLabel}
@@ -144,46 +197,117 @@ export function VehicleDetailCard() {
 
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
           <div className="p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
-            <span className="text-zinc-400 block text-[11px]">{t('route')}</span>
-            <span className="font-semibold text-zinc-200 truncate block mt-0.5">
-              {vehicle.routeId || '-'}
+            <span className="text-zinc-400 block text-[11px]">
+              {t('route')}
+            </span>
+            <span
+              className="font-semibold text-zinc-200 block mt-0.5 truncate"
+              title={vehicle.routeId || undefined}
+            >
+              {routeDisplay}
             </span>
           </div>
+
           <div className="p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
-            <span className="text-zinc-400 block text-[11px]">{t('trip')}</span>
-            <span className="font-semibold text-zinc-200 truncate block mt-0.5">
+            <span className="text-zinc-400 block text-[11px]">
+              {t('trip')}
+            </span>
+            <span
+              className="font-semibold text-zinc-200 truncate block mt-0.5"
+              title={vehicle.tripId || undefined}
+            >
               {vehicle.tripId || '-'}
             </span>
           </div>
+
           <div className="p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
-            <span className="text-zinc-400 block text-[11px]">{t('speed')}</span>
+            <span className="text-zinc-400 block text-[11px]">
+              {t('speed')}
+            </span>
             <span className="font-semibold text-zinc-200 block mt-0.5">
               {speedDisplay}
             </span>
           </div>
+
           <div className="p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
-            <span className="text-zinc-400 block text-[11px]">{t('bearing')}</span>
+            <span className="text-zinc-400 block text-[11px]">
+              {t('bearing')}
+            </span>
             <span className="font-semibold text-zinc-200 block mt-0.5">
               {bearingDisplay}
             </span>
           </div>
         </div>
 
+        {/* Hat adi, operator ve durak bilgileri */}
+        <div className="mt-3 space-y-2 text-xs">
+          {routeName && (
+            <div className="p-2.5 bg-blue-950/30 rounded-lg border border-blue-900/40">
+              <span className="text-blue-300 block text-[11px]">
+                {t('lineName')}
+              </span>
+              <span className="font-semibold text-zinc-100 block mt-1 break-words">
+                {routeName}
+              </span>
+            </div>
+          )}
+
+          {operatorName && (
+            <div className="flex items-start justify-between gap-3 p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
+              <span className="text-zinc-400 shrink-0">
+                {t('operator')}
+              </span>
+              <span className="font-medium text-zinc-200 text-right break-words">
+                {operatorName}
+              </span>
+            </div>
+          )}
+
+          {(vehicle.stopId || reference?.stop) && (
+            <div className="flex items-start justify-between gap-3 p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
+              <span className="text-zinc-400 shrink-0">
+                {t('stop')}
+              </span>
+              <span
+                className="font-medium text-zinc-200 text-right break-words"
+                title={vehicle.stopId || undefined}
+              >
+                {stopDisplay}
+              </span>
+            </div>
+          )}
+
+          {isReferencePending &&
+            Boolean(vehicle.routeId || vehicle.stopId) && (
+              <span className="text-[11px] text-zinc-500 block px-1">
+                {t('referenceLoading')}
+              </span>
+            )}
+        </div>
+
         <div className="mt-3 space-y-2 text-xs">
           <div className="flex items-center justify-between p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
-            <span className="text-zinc-400">{t('status')}</span>
+            <span className="text-zinc-400">
+              {t('status')}
+            </span>
             <span className="font-medium text-zinc-200">
               {getStatusText(vehicle.currentStatus)}
             </span>
           </div>
+
           <div className="flex items-center justify-between p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
-            <span className="text-zinc-400">{t('occupancy')}</span>
+            <span className="text-zinc-400">
+              {t('occupancy')}
+            </span>
             <span className="font-medium text-zinc-200">
               {getOccupancyText(vehicle.occupancyStatus)}
             </span>
           </div>
+
           <div className="flex items-center justify-between p-2.5 bg-zinc-800/30 rounded-lg border border-zinc-800">
-            <span className="text-zinc-400">{t('lastUpdate')}</span>
+            <span className="text-zinc-400">
+              {t('lastUpdate')}
+            </span>
             <span className="font-mono text-zinc-300">
               {getRelativeTimeString()}
             </span>

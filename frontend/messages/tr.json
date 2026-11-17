@@ -44,7 +44,11 @@
     "occNotBoardable": "Binişe Kapalı",
     "close": "Kapat",
     "historyButton": "Konum Geçmişi ve Rota",
-    "staleWarning": "Son sinyal {min} dk önce alındı (Araç durağan olabilir)"
+    "staleWarning": "Son sinyal {min} dk önce alındı (Araç durağan olabilir)",
+    "lineName": "Hat adı",
+    "operator": "Operatör",
+    "stop": "Durak",
+    "referenceLoading": "Hat ve durak bilgileri yükleniyor..."
   },
   "History": {
     "title": "Konum Geçmişi ve Rota",

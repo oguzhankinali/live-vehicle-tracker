@@ -44,7 +44,11 @@
     "occNotBoardable": "Not Boardable",
     "close": "Close",
     "historyButton": "Position History & Trail",
-    "staleWarning": "Last signal received {min}m ago (Vehicle may be stationary)"
+    "staleWarning": "Last signal received {min}m ago (Vehicle may be stationary)",
+    "lineName": "Line name",
+    "operator": "Operator",
+    "stop": "Stop",
+    "referenceLoading": "Loading line and stop information..."
   },
   "History": {
     "title": "Position History & Trail",
