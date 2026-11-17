@@ -11,13 +11,13 @@ public sealed class DbWriterWorker : BackgroundService
     private static readonly TimeSpan DrainTimeout =
         TimeSpan.FromSeconds(25);
 
-    private readonly DbWriteQueue _queue;
+    private readonly IVehicleWriteQueueReader _queue;
     private readonly IVehiclePositionWriter _writer;
     private readonly ISystemMetricsService _metrics;
     private readonly ILogger<DbWriterWorker> _logger;
 
     public DbWriterWorker(
-        DbWriteQueue queue,
+        IVehicleWriteQueueReader queue,
         IVehiclePositionWriter writer,
         ISystemMetricsService metrics,
         ILogger<DbWriterWorker> logger)

@@ -127,6 +127,9 @@ public static class DependencyInjection
         services.AddSingleton<IVehicleWriteQueue>(provider =>
             provider.GetRequiredService<DbWriteQueue>());
 
+        services.AddSingleton<IVehicleWriteQueueReader>(provider =>
+            provider.GetRequiredService<DbWriteQueue>());
+
         // Application ingestion orkestrasyonu
         services.AddSingleton<VehicleIngestionService>();
 

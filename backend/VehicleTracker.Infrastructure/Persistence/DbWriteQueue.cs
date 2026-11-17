@@ -4,7 +4,9 @@ using VehicleTracker.Domain.Entities;
 
 namespace VehicleTracker.Infrastructure.Persistence;
 
-public sealed class DbWriteQueue : IVehicleWriteQueue
+public sealed class DbWriteQueue :
+    IVehicleWriteQueue,
+    IVehicleWriteQueueReader
 {
     private const int DefaultCapacity = 1000;
 
