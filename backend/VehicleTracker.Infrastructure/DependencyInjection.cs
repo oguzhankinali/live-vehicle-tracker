@@ -107,6 +107,7 @@ public static class DependencyInjection
 
         // History use-case ve repository
         services.AddSingleton<VehicleHistoryQueryValidator>();
+        services.AddSingleton<VehicleReferenceQueryValidator>();
         services.AddSingleton(TimeProvider.System);
 
         services.AddSingleton(provider =>

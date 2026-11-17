@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using VehicleTracker.Application.Common.Interfaces;
 using VehicleTracker.Application.Common.Models;
+using VehicleTracker.Application.Vehicles;
 
 namespace VehicleTracker.WebApi.Controllers;
 
@@ -9,11 +10,14 @@ namespace VehicleTracker.WebApi.Controllers;
 public sealed class VehicleReferencesController : ControllerBase
 {
     private readonly IVehicleReferenceService _referenceService;
+    private readonly VehicleReferenceQueryValidator _validator;
 
     public VehicleReferencesController(
-        IVehicleReferenceService referenceService)
+        IVehicleReferenceService referenceService,
+        VehicleReferenceQueryValidator validator)
     {
         _referenceService = referenceService;
+        _validator = validator;
     }
 
     [HttpGet]
@@ -28,26 +32,7 @@ public sealed class VehicleReferencesController : ControllerBase
         [FromQuery] string? stopId,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(routeId)
-            && string.IsNullOrWhiteSpace(stopId))
-        {
-            throw new ArgumentException(
-                "At least one of routeId or stopId is required.");
-        }
-
-        if (routeId is { Length: > 160 }
-            || stopId is { Length: > 160 }
-            || (routeId is not null
-                && !routeId.Contains(":Line:",
-                    StringComparison.Ordinal))
-            || (stopId is not null
-                && !stopId.StartsWith(
-                    "NSR:Quay:",
-                    StringComparison.Ordinal)))
-        {
-            throw new ArgumentException(
-                "Invalid Entur line or quay identifier.");
-        }
+        _validator.Validate(routeId, stopId);
 
         var result = await _referenceService.GetAsync(
             routeId,
