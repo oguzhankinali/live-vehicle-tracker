@@ -55,8 +55,6 @@ public sealed class SnapshotChangeDetector
 
         Prune(threshold);
 
-        //!! DİKKAT: _lastPayloadSha256 atamasını buradan kaldırdık. 
-        // Sadece DB'ye yazım başarılı olursa Acknowledge içinde güncellenecek.
 
         return new DetectionResult(
             SnapshotDisposition.Processed,
@@ -65,7 +63,6 @@ public sealed class SnapshotChangeDetector
             skippedNotNewer);
     }
 
-    // Geleceğe Not: DB yazımı başarılı olduktan sonra hem entity zamanlarını hem de SHA'yı onaylıyoruz.
     public void Acknowledge(IReadOnlyList<VehiclePositionRecord> processedRecords, string payloadSha256)
     {
         foreach (var record in processedRecords)
