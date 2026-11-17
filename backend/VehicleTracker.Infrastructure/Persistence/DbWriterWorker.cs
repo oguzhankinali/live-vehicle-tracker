@@ -8,6 +8,17 @@ namespace VehicleTracker.Infrastructure.Persistence;
 
 public sealed class DbWriterWorker : BackgroundService
 {
+    private const string DataExceptionSqlStateClass = "22";
+    private const string IntegrityConstraintSqlStateClass = "23";
+
+    private const int RetryBackoffMultiplier = 2;
+
+    private static readonly TimeSpan InitialRetryDelay =
+        TimeSpan.FromSeconds(1);
+
+    private static readonly TimeSpan MaxRetryDelay =
+        TimeSpan.FromSeconds(30);
+
     private static readonly TimeSpan DrainTimeout =
         TimeSpan.FromSeconds(25);
 
@@ -79,7 +90,7 @@ public sealed class DbWriterWorker : BackgroundService
         IReadOnlyList<VehiclePositionRecord> batch,
         CancellationToken cancellationToken)
     {
-        var delay = TimeSpan.FromSeconds(1);
+        var delay = InitialRetryDelay;
 
         while (true)
         {
@@ -95,9 +106,11 @@ public sealed class DbWriterWorker : BackgroundService
             }
             catch (PostgresException exception)
                 when (exception.SqlState.StartsWith(
-                          "22", StringComparison.Ordinal) ||
+                          DataExceptionSqlStateClass,
+                          StringComparison.Ordinal) ||
                       exception.SqlState.StartsWith(
-                          "23", StringComparison.Ordinal))
+                          IntegrityConstraintSqlStateClass,
+                          StringComparison.Ordinal))
             {
                 if (batch.Count == 1)
                 {
@@ -136,7 +149,9 @@ public sealed class DbWriterWorker : BackgroundService
                 await Task.Delay(delay, cancellationToken);
 
                 delay = TimeSpan.FromSeconds(
-                    Math.Min(delay.TotalSeconds * 2, 30));
+                    Math.Min(
+                        delay.TotalSeconds * RetryBackoffMultiplier,
+                        MaxRetryDelay.TotalSeconds));
             }
         }
     }
