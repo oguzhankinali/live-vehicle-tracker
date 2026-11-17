@@ -7,7 +7,7 @@ using VehicleTracker.WebApi.Hubs;
 
 namespace VehicleTracker.WebApi.Services;
 
-public sealed class SignalRVehiclePublisher : IVehiclePublisher
+public sealed class SignalRVehiclePublisher : IVehiclePublisher, IVehicleClientRegistry
 {
     private const int QueueCapacity = 50;
 
@@ -75,11 +75,11 @@ public sealed class SignalRVehiclePublisher : IVehiclePublisher
 
                     _logger.LogWarning("Istemci {ConnectionId} geride kaldi; taze snapshot (resync) gonderiliyor.", connectionId);
 
-                    await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveSnapshot", _liveStore.GetAllLatest());
+                    await _hubContext.Clients.Client(connectionId).SendAsync(VehicleHubMethods.ReceiveSnapshot, _liveStore.GetAllLatest());
                     continue;
                 }
 
-                await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveUpdates", updates);
+                await _hubContext.Clients.Client(connectionId).SendAsync(VehicleHubMethods.ReceiveUpdates,updates);
             }
         }
         catch (Exception exception)

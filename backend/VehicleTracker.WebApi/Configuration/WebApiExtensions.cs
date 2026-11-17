@@ -52,6 +52,8 @@ public static class WebApiExtensions
 
         services.AddSingleton<IVehiclePublisher>(provider =>
             provider.GetRequiredService<SignalRVehiclePublisher>());
+        services.AddSingleton<IVehicleClientRegistry>(provider =>
+            provider.GetRequiredService<SignalRVehiclePublisher>());
 
         return services;
     }
